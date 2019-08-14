@@ -81,6 +81,16 @@ function DataFrames.DataFrame(vresid::Vector{<:SubjectResidual}; include_covaria
   df
 end
 
+"""
+    restype(approx)
+
+Returns the residual type for the given approximation method.
+Can be one of [`FO`](@ref), [`FOCE`](@ref), or [`FOCEI`](@ref).
+"""
+restype(::FO) = :wres
+restype(::FOCE) = :cwres
+restype(::FOCEI) = :cwresi
+
 function wresiduals(model::PumasModel, subject::Subject, param::NamedTuple, randeffs, approx::FO, args...; kwargs...)
   wres(model, subject, param, randeffs, args...; kwargs...)
 end
