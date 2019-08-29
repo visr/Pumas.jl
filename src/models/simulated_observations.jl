@@ -39,6 +39,10 @@ function DataFrames.DataFrame(obs::SimulatedObservations;
     df[!,k] = deepcopy(var)
   end
   obs_columns = [keys(obs.observed)...]
+  # Allow all dv columns to be missing
+  for cols in obs_columns
+    allowmissing!(df, cols)
+  end
   if include_events
     # Append event columns
     ## For observations we have `evid=0` and `cmt=0`, the latter
@@ -60,26 +64,16 @@ function DataFrames.DataFrame(obs::SimulatedObservations;
       else
         ev_row = vcat(ev.time, missings(length(obs_columns)),
                       ev.amt, ev.evid, ev.cmt, ev.rate)
-        try
-          push!(df, ev_row)
-        catch # exception if df doesn't allow missing values yet
-          allowmissing!(df, obs_columns)
-          push!(df, ev_row)
-        end
+        push!(df, ev_row)
       end
     end
-
+    # Remove negative evid's
     df = df[df[!, :evid].!=-1,:]
     sort!(df, (:time, order(:evid, rev=event_order_reverse)))
   end
-  if include_covariates
-    covariates = obs.subject.covariates
-    if covariates != nothing
-      for (cov, value) in pairs(covariates)
-        df[!,cov] .= value
-      end
-    end
-  end
+
+  include_covariates && _add_covariates!(df, obs.subject)
+
   df
 end
 
