@@ -76,15 +76,15 @@ function do_ivivc(vitro_data, uir_data, vivo_data;
     ub = [1.25, 1.25]
     lb = [0.0, 0.0]
   elseif ivivc_model == :three
-    m = (form, time, x) -> x[1] * vitro_data[1][form](time * x[2] - x[3])
+    m = (form, time, x) -> x[1] * vitro_data[1][form](time * x[2] .- x[3])
     p = [0.8, 0.5, 0.6]
     ub = [1.25, 1.25, 1.25]
     lb = [0.0, 0.0, 0.0]
   elseif ivivc_model == :four
-    m = (form, time, x) -> (x[1] * vitro_data[1][form](time * x[2] - x[3])) - x[4]
-    p = [0.8, 0.5, 0.6]
-    ub = [1.25, 1.25, 1.25]
-    lb = [0.0, 0.0, 0.0]
+    m = (form, time, x) -> (x[1] * vitro_data[1][form](time * x[2] .- x[3])) .- x[4]
+    p = [0.8, 0.5, 0.6, 0.6]
+    ub = [1.25, 1.25, 1.25, 1.25]
+    lb = [0.0, 0.0, 0.0, 0.0]
   else
     error("Incorrect keyword for IVIVC model!!")
   end
@@ -184,12 +184,12 @@ function to_csv(obj::do_ivivc, path=homedir())
   df[!,:formulation] = forms
   df[!,:model] .= String(vitro_model)
   df = hcat(df, DataFrame(mat, Symbol.(:p, 1:num_p)))
-  CSV.write(joinpath(path, "vitro_model_estimated_params.csv"), df)
+  CSV.write(joinpath(path, "$(length(pmin))__" * "vitro_model_estimated_params.csv"), df)
   ####
 
   # save to ka, kel and V to csv file
   df = DataFrame(model = uir_model, dose_fraction = uir_frac, ka = ka, kel = kel, V = V)
-  CSV.write(joinpath(path, "uir_estimates.csv"), df)
+  CSV.write(joinpath(path, "$(length(pmin))__" * "uir_estimates.csv"), df)
   #####
 
   # Fabs
@@ -200,11 +200,23 @@ function to_csv(obj::do_ivivc, path=homedir())
       df = vcat(df, DataFrame(id=prof.id, time=prof.time, Fabs=fabs[i][form], formulation=prof.form))
     end
   end
-  CSV.write(joinpath(path, "vivo_Fabs.csv"), df)
+  CSV.write(joinpath(path, "$(length(pmin))__" * "vivo_Fabs.csv"), df)
   ####
+
+  # Fabs and Fdiss
+  df = DataFrame()
+  for i = 1:length(vivo_data)
+    dict = vivo_data[i]
+    for (form, prof) in dict
+      df = vcat(df, DataFrame(formulation=prof.form, time=prof.time, Fdiss_t=vitro_data[1][form](prof.time), 
+              Fdiss_t_Tscale=vitro_data[1][form](prof.time*pmin[2]), FAbs=fabs[1][form],
+                  predicted_FAbs=obj.ivivc_model(form, prof.time, pmin)))
+    end
+  end
+  CSV.write(joinpath(path, "$(length(pmin))__" * "Fabs_and_predictedFAbs.csv"), df)
 
   # save estimated params of ivivc model to csv file
   df = DataFrame(pmin', Symbol.(:p, 1:length(pmin)))
-  CSV.write(joinpath(path, "ivivc_params_estimates.csv"), df)
+  CSV.write(joinpath(path, "$(length(pmin))__" * "ivivc_params_estimates.csv"), df)
   ######
 end
