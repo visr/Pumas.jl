@@ -90,7 +90,6 @@ end
 
 """
     DosageRegimen
-
 Lazy representation of a series of Events.
 """
 mutable struct DosageRegimen
@@ -102,6 +101,7 @@ mutable struct DosageRegimen
                          ii::Number,
                          addl::Number,
                          rate::Number,
+                         duration::Number,
                          ss::Number)
     # amt = evid ∈ [0, 3] ? float(zero(amt)) : float(amt)
     amt = float(amt)
@@ -115,6 +115,8 @@ mutable struct DosageRegimen
     evid ∈ 1:4 || throw(ArgumentError("evid must be a valid event type"))
     if evid ∈ [0, 3]
       iszero(amt) || throw(ArgumentError("amt must be 0 for evid = $evid"))
+    elseif iszero(amt) && rate > 0 && duration > 0
+      amt = rate * duration
     else
       amt > zero(amt) || throw(ArgumentError("amt must be positive for evid = $evid"))
     end
@@ -125,36 +127,42 @@ mutable struct DosageRegimen
     addl > 0 && ii == zero(ii) && throw(ArgumentError("ii must be positive for addl > 0"))
     rate ≥ zero(rate) || rate == -2 || throw(ArgumentError("rate is invalid"))
     ss ∈ 0:2 || throw(ArgumentError("ss is invalid"))
-    return new(DataFrame(time = time, cmt = cmt, amt = amt,
-                         evid = evid, ii = ii, addl = addl,
-                         rate = rate, ss = ss))
+    if iszero(duration) && amt > zero(amt) && rate > zero(rate)
+      duration = amt / rate
+    elseif iszero(rate) && amt > zero(amt) && duration > zero(rate)
+      rate = amt / duration
+    elseif duration > zero(duration) && rate > zero(rate)
+      @assert amt ≈ rate * duration
+    end
+    new(DataFrame(time = time, cmt = cmt, amt = amt, evid = evid, ii = ii, addl = addl,
+                  rate = rate, duration = duration, ss = ss))
   end
   DosageRegimen(amt::Numeric;
                 time::Numeric = 0,
-                cmt::Union{Numeric,Symbol}  = 1,
+                cmt::Union{Numeric,Symbol} = 1,
                 evid::Numeric = 1,
-                ii::Numeric   = zero.(time),
+                ii::Numeric = zero.(time),
                 addl::Numeric = 0,
                 rate::Numeric = zero.(amt)./oneunit.(time),
-                ss::Numeric   = 0) =
-  DosageRegimen(DosageRegimen.(amt, time, cmt, evid, ii, addl,
-                               rate, ss))
+                duration::Numeric = zero(amt)./oneunit.(time),
+                ss::Numeric = 0) =
+  DosageRegimen(DosageRegimen.(amt, time, cmt, evid, ii, addl, rate, duration, ss))
   DosageRegimen(regimen::DosageRegimen) = regimen
   function DosageRegimen(regimen1::DosageRegimen,
                          regimen2::DosageRegimen;
                          offset = nothing)
-    data1 = getfield(regimen1, :data)
-    data2 = getfield(regimen2, :data)
-    if offset === nothing
+    data1 = regimen1.data
+    data2 = regimen2.data
+    if isnothing(offset)
       output = sort!(vcat(data1, data2), :time)
     else
       data2 = deepcopy(data2)
-      data2[:time] = cumsum(prepend!(data1[:ii][end] * (data1[:addl][end] + 1) +
-                                     data1[:time][end] +
-                                     offset))
+      data2[!,:time] = cumsum(prepend!(data1[!,:ii][end] * (data1[!,:addl][end] + 1) +
+                                       data1[!,:time][end] +
+                                       offset))
       output = sort!(vcat(data1, data2), :time)
     end
-    return new(output)
+    new(output)
   end
   DosageRegimen(regimens::AbstractVector{<:DosageRegimen}) = reduce(DosageRegimen, regimens)
   DosageRegimen(regimens::DosageRegimen...) = reduce(DosageRegimen, regimens)
@@ -264,6 +272,108 @@ struct Subject{T1,T2,T3,T4}
   end
 end
 
+
+function DataFrames.DataFrame(subject::Subject; include_covariates=true, include_dvs=true)
+  # Build a DataFrame that holds the events
+  df_events = DataFrame(build_event_list(subject.events, true))
+  # Remove events with evid==-1
+  df_events = df_events[df_events[!, :evid].!=-1,:]
+
+  # We delete rate/duration if no infusions. Else, we delete duration or rate
+  # as appropriate. TODO This will actually fail if used in the context of a
+  # Population where some Subjects have duration specified and others have
+  # rate specified.
+  if all(x->iszero(x), df_events[Not(ismissing.(df_events[!, :rate])),:rate])
+    # There are no infusions
+    select!(df_events, Not(:rate))
+    select!(df_events, Not(:duration))
+  elseif all(x->x>zero(x), df_events[Not(ismissing.(df_events[!, :rate])),:rate])
+    # There are infusions, and they're specified by rate
+    select!(df_events, Not(:duration))
+  else
+    # There are infusions, and they're specified by duration
+    select!(df_events, Not(:rate))
+  end
+
+  # Generate the name for the dependent variable in a manner consistent with
+  # multiple dvs etc
+  if !isnothing(subject.time)
+    df = DataFrame(id = fill(subject.id, length(subject.time)), time=subject.time)
+    df[!, :evid] .= 0
+    # Only include the dv columns if include_dvs is specified and there are
+    # observations.
+    if include_dvs && !isnothing(subject.observations)
+      # Loop over all dv's
+      for (dv_name, dv_vals) in pairs(subject.observations)
+        df[!, dv_name] .= dv_vals
+      end
+    end
+    # Now, create columns in df_events with missings for the column names in
+    # df but not in df_events
+    if include_dvs
+      for df_name in names(df)
+        if df_name == :id
+          df_events[!, df_name] .= subject.id
+        elseif !(df_name == :time)
+          if df_name ∉ names(df_events)
+            df_events[!, df_name] .= missing
+          end
+        end
+      end
+      # ... and do the same for df
+      for df_name in names(df_events)
+        if df_name ∉ names(df)
+          df[!, df_name] .= missing
+        end
+      end
+    end
+  end
+
+  # If there are no observations, just go with df_events
+  if isnothing(subject.time)
+    df = df_events
+  elseif include_dvs
+    df = vcat(df, df_events)
+  else
+    df
+  end
+  if include_covariates
+    if !isa(subject.covariates, Nothing)
+      for (covariate, value) in pairs(subject.covariates)
+        df[!,covariate] .= value
+      end
+    end
+  end
+
+  # Sort the df according to time first, and use :base_time to ensure that events
+  # come before observations (they are missing for observations, so they will come
+  # last).
+  sort_bys = include_dvs ? (:time, :base_time) : (:time,)
+  sort!(df, sort_bys)
+
+  # Find the amount (amt) column, and insert dose and tad columns after it
+  if include_dvs
+    amt_pos = findfirst(isequal(:amt), names(df))
+    insertcols!(df, amt_pos+1, :dose => 0.0)
+    insertcols!(df, amt_pos+2, :tad => 0.0)
+    # Calculate the indeces for the dose events
+    idxs = findall(isequal(false), ismissing.(df[!, :amt]))
+    # Append the number of rows to allow the +1 indexing used below
+    if !(idxs[end] == nrow(df))
+      push!(idxs, nrow(df))
+    end
+    for i in 1:length(idxs)-1
+      df[idxs[i]:idxs[i+1], :dose] .= df[idxs[i], :amt]
+      df[idxs[i]:idxs[i+1], :cmt] .= df[idxs[i], :cmt]
+      df[idxs[i]:idxs[i+1], :tad] .= df[idxs[i]:idxs[i+1], :time].-df[idxs[i], :time]
+    end
+  end
+
+  # Return df
+  df
+end
+
+
 ### Display
 Base.summary(::Subject) = "Subject"
 function Base.show(io::IO, subject::Subject)
@@ -311,6 +421,10 @@ A `Population` is an `AbstractVector` of `Subject`s.
 """
 Population{T} = AbstractVector{T} where T<:Subject
 Population(obj::Population...) = reduce(vcat, obj)::Population
+
+function DataFrames.DataFrame(pop::Population; include_covariates=true, include_dvs=true)
+  vcat((DataFrame(subject; include_covariates=include_covariates, include_dvs=include_dvs) for subject in pop)...)
+end
 
 ### Display
 Base.summary(::Population) = "Population"
