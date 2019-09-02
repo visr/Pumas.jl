@@ -235,7 +235,7 @@ end
 
 # used for pre-defined analytical systems
 function extract_dynamics!(vars, odevars, prevars, callvars, ode_init, sym::Symbol, eqs)
-  obj = eval(sym)
+  obj = getproperty(@__MODULE__,sym)
   if obj isa Type && obj <: ExplicitModel # explict model
     for p in varnames(obj)
       if p in keys(ode_init)
@@ -314,9 +314,9 @@ function dynamics_obj(odeexpr::Expr, pre, odevars, callvars, bvars, eqs, isstati
   for eq in eqs.args
     lhsvar = D(dvars[findfirst(x->x.op.name == eq.args[2].args[2],dvars)])
     rhseq = eq.args[3]
-    push!(mteqs,lhsvar ~ convert_rhs_to_Expression(rhseq,dvars,params,t))
+    push!(mteqs,lhsvar ~ convert_rhs_to_Expression(rhseq,bvars,dvars,params,t))
   end
-  
+
   f_ex = generate_function(ODESystem(mteqs),dvars,params)
 
   quote
@@ -327,7 +327,7 @@ function dynamics_obj(odeexpr::Expr, pre, odevars, callvars, bvars, eqs, isstati
   end
 end
 
-function convert_rhs_to_Expression(s::Symbol, dvars, params, t)
+function convert_rhs_to_Expression(s::Symbol, bvars, dvars, params, t)
   s == t.op.name && return t
   i = findfirst(x->x.op.name == s,dvars)
   i !== nothing && return dvars[i]
@@ -339,11 +339,19 @@ function convert_rhs_to_Expression(s::Symbol, dvars, params, t)
     end
   end
   i !== nothing && return params[i]
-  error("Unknown symbol $(string(x)) detected")
-end
-convert_rhs_to_Expression(x::Number, dvars, params, t) = Constant(x)
 
-function convert_rhs_to_Expression(ex,dvars,params,t)
+  # handle vars expression by substitution
+  for i in 1:(length(bvars.args)÷2)
+    if s == bvars.args[2*i].args[1]
+      return convert_rhs_to_Expression(bvars.args[2*i].args[2].args[3],bvars,dvars,params,t)
+    end
+  end
+
+  error("Unknown symbol $(string(s)) detected")
+end
+convert_rhs_to_Expression(x::Number, bvars, dvars, params, t) = Constant(x)
+
+function convert_rhs_to_Expression(ex,bvars,dvars,params,t)
   ex.head === :if && (ex = Expr(:call, ifelse, ex.args...))
 
   i = findfirst(x->x.op.name == ex.args[1],dvars)
@@ -356,8 +364,8 @@ function convert_rhs_to_Expression(ex,dvars,params,t)
   end
 
   if i === j === nothing
-    op = eval(ex.args[1])  # HACK
-    args = convert_rhs_to_Expression.(ex.args[2:end],(dvars,),(params,),t)
+    op = getproperty(@__MODULE__,ex.args[1])
+    args = convert_rhs_to_Expression.(ex.args[2:end],(bvars,),(dvars,),(params,),t)
     return Operation(op, args)
   else # ex is a call, like CL(t)
     if i !== nothing
@@ -365,7 +373,7 @@ function convert_rhs_to_Expression(ex,dvars,params,t)
     elseif j !== nothing
       var = params[j]
     end
-    return var(convert_rhs_to_Expression.(ex.args[2:end],(dvars,),(params,),t)...)
+    return var(convert_rhs_to_Expression.(ex.args[2:end],(bvars,),(dvars,),(params,),t)...)
   end
 end
 

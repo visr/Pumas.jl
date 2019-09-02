@@ -38,6 +38,7 @@ mdsl = @model begin
 
     @vars begin
       conc = Central / V
+      conc2 = Central^2
     end
 
     @dynamics begin
