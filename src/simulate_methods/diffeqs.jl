@@ -1,4 +1,4 @@
-function _solve_diffeq(m::PumasModel, subject::Subject, args...; saveat=Float64[], save_discont=isempty(saveat), continuity=:right, alg=AutoTsit5(Rosenbrock23()), kwargs...)
+function _build_diffeq_problem(m::PumasModel, subject::Subject, args...; saveat=Float64[], save_discont=isempty(saveat), continuity=:right, alg=AutoTsit5(Rosenbrock23()), kwargs...)
   prob = typeof(m.prob) <: DiffEqBase.AbstractJumpProblem ? m.prob.prob : m.prob
   tspan = prob.tspan
   col = prob.p
@@ -27,7 +27,10 @@ function _solve_diffeq(m::PumasModel, subject::Subject, args...; saveat=Float64[
   new_f = make_function(prob,fd)
 
   _prob = remake(m.prob; callback=CallbackSet(cb,prob.callback), f=new_f, u0=Tu0, tspan=tspan)
+  _prob,tstops
+end
 
+function _solve_diffeq_problem(_prob, args...; saveat=Float64[], tstops=Float64[], save_discont=isempty(saveat), continuity=:right, alg=AutoTsit5(Rosenbrock23()), kwargs...)
   sol = solve(_prob,alg,args...;
               saveat = saveat,
               save_first = tspan[1] ∈ saveat,
