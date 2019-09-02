@@ -349,7 +349,7 @@ function convert_rhs_to_Expression(s::Symbol, bvars, dvars, params, t)
 
   error("Unknown symbol $(string(s)) detected")
 end
-convert_rhs_to_Expression(x::Number, bvars, dvars, params, t) = Constant(x)
+convert_rhs_to_Expression(x::Number, bvars, dvars, params, t) = ModelingToolkit.Constant(x)
 
 function convert_rhs_to_Expression(ex,bvars,dvars,params,t)
   ex.head === :if && (ex = Expr(:call, ifelse, ex.args...))
