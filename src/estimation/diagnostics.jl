@@ -574,3 +574,16 @@ end
 
     primary := false # do not add a legend entry here, do other nice things that Plots does as well
 end
+
+# This will use default args and kwargs!!
+findinfluential(fpm::FittedPumasModel) = findinfluential(fpm.model, fpm.data, fpm.param, fpm.approx)
+function findinfluential(m::PumasModel,
+                         data::Population,
+                         param::NamedTuple,
+                         approx::LikelihoodApproximation,
+                         args...;
+                         k=5, kwargs...)
+  d = [deviance(m, subject, param, approx, args...; kwargs...) for subject in data]
+  p = partialsortperm(d, 1:k, rev=true)
+  return [(data[pᵢ].id, d[pᵢ]) for pᵢ in p]
+end
