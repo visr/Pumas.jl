@@ -289,41 +289,91 @@ end
 
 function dynamics_obj(odeexpr::Expr, pre, odevars, callvars, bvars, eqs, isstatic)
   odeexpr == :() && return nothing
-  dvars = :(begin end)
-  params = :(begin end)
-  diffeq = :(ODEProblem(ODEFunction{false}(ODESystem($eqs),[], []),nothing,nothing,nothing))
+  dvars = []
+  params = []
+  mteqs = []
+  fname = gensym(:PumasDiffEqFunction)
+  diffeq = :(ODEProblem{false}($fname,nothing,nothing,nothing))
 
   # DVar
+  t = Variable(:t; known = true)()
+  D = Differential(t)
   for v in odevars
-    push!(dvars.args, :($v = Variable($(Meta.quot(v)))(t)))
-    push!(diffeq.args[2].args[3].args, v)
+    push!(dvars, Variable(v)(t))
   end
+
   # Param
   for p in pre
     if p ∈ callvars
-      push!(params.args, :($p = Variable($(Meta.quot(p)); known = true)))
+      push!(params, Variable(p; known=true))
     else
-      push!(params.args, :($p = Variable($(Meta.quot(p)); known = true)()))
+      push!(params, Variable(p; known=true)())
     end
-    push!(diffeq.args[2].args[4].args, p)
   end
+
+  for eq in eqs.args
+    lhsvar = D(dvars[findfirst(x->x.op.name == eq.args[2].args[2],dvars)])
+    rhseq = eq.args[3]
+    push!(mteqs,lhsvar ~ convert_rhs_to_Expression(rhseq,dvars,params,t))
+  end
+  
+  f_ex = generate_function(ODESystem(mteqs),dvars,params)
+
   quote
     let
-      t = Variable(:t; known = true)()
-      $dvars
-      ___D = Differential(t)
-      $params
-      $bvars
+      $fname = $f_ex
       $diffeq
     end
   end
 end
+
+function convert_rhs_to_Expression(s::Symbol, dvars, params, t)
+  s == t.op.name && return t
+  i = findfirst(x->x.op.name == s,dvars)
+  i !== nothing && return dvars[i]
+  i = findfirst(params) do x
+    if x isa Operation
+      x.op.name == s
+    else # For CL(t)
+      x.name == s
+    end
+  end
+  i !== nothing && return params[i]
+  error("Unknown symbol $(string(x)) detected")
+end
+convert_rhs_to_Expression(x::Number, dvars, params, t) = Constant(x)
+
+function convert_rhs_to_Expression(ex,dvars,params,t)
+  ex.head === :if && (ex = Expr(:call, ifelse, ex.args...))
+
+  i = findfirst(x->x.op.name == ex.args[1],dvars)
+  j = findfirst(params) do x
+    if x isa Operation
+      x.op.name == ex.args[1]
+    else # For CL(t)
+      x.name == ex.args[1]
+    end
+  end
+
+  if i === j === nothing
+    op = eval(ex.args[1])  # HACK
+    args = convert_rhs_to_Expression.(ex.args[2:end],(dvars,),(params,),t)
+    return Operation(op, args)
+  else # ex is a call, like CL(t)
+    if i !== nothing
+      var = dvars[i]
+    elseif j !== nothing
+      var = params[j]
+    end
+    return var(convert_rhs_to_Expression.(ex.args[2:end],(dvars,),(params,),t)...)
+  end
+end
+
 function dynamics_obj(odename::Symbol, pre, odevars, callvars, bvars, eqs, isstatic)
   quote
     ($odename isa Type && $odename <: ExplicitModel) ? $odename() : $odename
   end
 end
-
 
 function extract_defs!(vars, defsdict, exprs)
   # should be called on an expression wrapped in a @derived

@@ -26,6 +26,8 @@
     include("dcp_rate.jl") end
 @time @safetestset "Type-Stability Tests" begin
     include("stability_tests.jl") end
+@time @safetestset "Parallelism Tests" begin
+    include("parallel.jl") end
 @time @safetestset "StaticArray Tests" begin
      include("static_array_test.jl") end
 @time @safetestset "Time-Varying Covariate Tests" begin
