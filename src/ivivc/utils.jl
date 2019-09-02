@@ -1,5 +1,5 @@
 # In vitro data modeling
-function estimate_fdiss(subj::VitroForm, model::Union{Symbol, Function}; time_lag=false,
+function estimate_fdiss(subj::InVitroForm, model::Union{Symbol, Function}; time_lag=false,
                         p0=nothing, alg=LBFGS(), box=true, upper_bound=nothing, lower_bound=nothing)
     lower_bound, upper_bound, p0 = fill_p0_and_bounds(subj.conc, subj.time, model, time_lag, p0, upper_bound, lower_bound)
     model = typeof(model) <: Symbol ? get_avail_models()[model] : model
@@ -51,7 +51,7 @@ function _fill_p0_and_bounds(conc, time, model, p0, box, ub, lb)
   end
 end
 
-function (subj::VitroForm)(t::Union{AbstractVector{<:Number}, Number})
+function (subj::InVitroForm)(t::Union{AbstractVector{<:Number}, Number})
   subj.m(t, subj.pmin)
 end
 

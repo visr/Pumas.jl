@@ -1,34 +1,34 @@
-# VivoForm
-mutable struct VivoForm{ID, C, T, F, D}
+# InVivoForm
+mutable struct InVivoForm{ID, C, T, F, D}
   id::ID
   conc::C
   time::T
   form::F
   dose::D
-  function VivoForm(conc, time, form, dose, id=1)
+  function InVivoForm(conc, time, form, dose, id=1)
     return new{typeof(id), typeof(conc), typeof(time),
                 typeof(form), typeof(dose)}(id, conc, time, form, dose)
   end
 end
 
-Base.Broadcast.broadcastable(q::VivoForm) = Ref(q)
+Base.Broadcast.broadcastable(q::InVivoForm) = Ref(q)
 
-function Base.show(io::IO, n::VivoForm)
+function Base.show(io::IO, n::InVivoForm)
   df = DataFrame(id = n.id, time = n.time, conc = n.conc, formulation = n.form, dose = n.dose)
   show(io::IO, df)
 end
 
-# VivoData
-struct VivoData{popType} <: Ivivc
+# InVivoData
+struct InVivoData{popType} <: Ivivc
   subjects::popType
-  function VivoData(_pop)
+  function InVivoData(_pop)
     # TODO: can do some checking and other stuff
     return new{typeof(_pop)}(_pop)
   end
 end
 
-# VitroForm
-mutable struct VitroForm{ID, C, T, F, pType}
+# InVitroForm
+mutable struct InVitroForm{ID, C, T, F, pType}
   id::ID
   conc::C
   time::T
@@ -40,23 +40,23 @@ mutable struct VitroForm{ID, C, T, F, pType}
   ub::pType                             # upper bound of params
   lb::pType                             # lower bound of params
   pmin::pType                           # optimized params
-  function VitroForm(conc, time, form, id=1)
+  function InVitroForm(conc, time, form, id=1)
     return new{typeof(id), typeof(conc), typeof(time),
                 typeof(form), typeof(conc)}(id, conc, time, form)
   end
 end
 
-Base.Broadcast.broadcastable(q::VitroForm) = Ref(q)
+Base.Broadcast.broadcastable(q::InVitroForm) = Ref(q)
 
-function Base.show(io::IO, n::VitroForm)
+function Base.show(io::IO, n::InVitroForm)
   df = DataFrame(id = n.id, time = n.time, conc = n.conc, formulation = n.form)
   show(io::IO, df)
 end
 
-# VitroData
-struct VitroData{popType} <: Ivivc
+# InVitroData
+struct InVitroData{popType} <: Ivivc
   subjects::popType
-  function VitroData(_pop)
+  function InVitroData(_pop)
     # TODO: can do some checking and other stuff
     return new{typeof(_pop)}(_pop)
   end

@@ -337,13 +337,8 @@ function DataFrames.DataFrame(subject::Subject; include_covariates=true, include
   else
     df
   end
-  if include_covariates
-    if !isa(subject.covariates, Nothing)
-      for (covariate, value) in pairs(subject.covariates)
-        df[!,covariate] .= value
-      end
-    end
-  end
+
+  include_covariates && _add_covariates!(df, subject)
 
   # Sort the df according to time first, and use :base_time to ensure that events
   # come before observations (they are missing for observations, so they will come
@@ -372,7 +367,14 @@ function DataFrames.DataFrame(subject::Subject; include_covariates=true, include
   # Return df
   df
 end
-
+function _add_covariates!(df::DataFrame, subject::Subject)
+  covariates = subject.covariates
+  if !isa(covariates, Nothing)
+    for (covariate, value) in pairs(covariates)
+      df[!,covariate] .= value
+    end
+  end
+end
 
 ### Display
 Base.summary(::Subject) = "Subject"

@@ -3,8 +3,8 @@
     read_vivo(df::Union{DataFrame,AbstractString}; id=:id, time=:time,
              conc=:conc, form=:form, dose=:dose, kwargs...)
 
-Parse a `DataFrame` object or a CSV file to `VivoData`
-which holds an array of `VivoForm`s.
+Parse a `DataFrame` object or a CSV file to `InVivoData`
+which holds an array of `InVivoForm`s.
 """
 read_vivo(file::AbstractString; kwargs...) = read_vivo(CSV.read(file); kwargs...)
 
@@ -40,12 +40,12 @@ function ___read_vivo(df; id=:id, time=:time, conc=:conc, formulation=:form, dos
   for (i, id) in enumerate(uids)
     # id's range, and we know that it is sorted
     idx = findfirst(isequal(id), ids):findlast(isequal(id), ids)
-    ind = Dict{eltype(forms), VivoForm}()
+    ind = Dict{eltype(forms), InVivoForm}()
     for form in uforms
       if form in forms[idx]
         idx_n = findfirst(isequal(form), forms[idx]):findlast(isequal(form), forms[idx])
         try
-          ind[form] = VivoForm(concs[idx_n], times[idx_n], form, doses[idx_n[1]], id, kwargs...)
+          ind[form] = InVivoForm(concs[idx_n], times[idx_n], form, doses[idx_n[1]], id, kwargs...)
         catch
           @info "ID $id errored for formulation $(form)"
           rethrow()
@@ -55,7 +55,7 @@ function ___read_vivo(df; id=:id, time=:time, conc=:conc, formulation=:form, dos
     ncas[i] = ind
   end
   # Use broadcast to tighten ncas element type
-  pop = VivoData(identity.(ncas))
+  pop = InVivoData(identity.(ncas))
   return pop
 end
 
@@ -92,8 +92,8 @@ end
     read_vitro(df::Union{DataFrame,AbstractString}; id=:id, time=:time,
              conc=:conc, form=:form, kwargs...)
 
-Parse a `DataFrame` object or a CSV file to `VitroData`
-which holds an array of `VitroForm`s.
+Parse a `DataFrame` object or a CSV file to `InVitroData`
+which holds an array of `InVitroForm`s.
 """
 read_vitro(file::AbstractString; kwargs...) = read_vitro(CSV.read(file); kwargs...)
 
@@ -128,12 +128,12 @@ function ___read_vitro(df; id=:id, time=:time, conc=:conc, formulation=:form, kw
   for (i, id) in enumerate(uids)
     # id's range, and we know that it is sorted
     idx = findfirst(isequal(id), ids):findlast(isequal(id), ids)
-    ind = Dict{eltype(forms), VitroForm}()
+    ind = Dict{eltype(forms), InVitroForm}()
     for form in uforms
       if form in forms[idx]
         idx_n = findfirst(isequal(form), forms[idx]):findlast(isequal(form), forms[idx])
         try
-          ind[form] = VitroForm(concs[idx_n], times[idx_n], form, id, kwargs...)
+          ind[form] = InVitroForm(concs[idx_n], times[idx_n], form, id, kwargs...)
         catch
           @info "ID $id errored for formulation $(form)"
           rethrow()
@@ -143,6 +143,6 @@ function ___read_vitro(df; id=:id, time=:time, conc=:conc, formulation=:form, kw
     ncas[i] = ind
   end
   # Use broadcast to tighten ncas element type
-  pop = VitroData(identity.(ncas))
+  pop = InVitroData(identity.(ncas))
   return pop
 end

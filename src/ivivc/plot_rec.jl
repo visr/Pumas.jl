@@ -1,4 +1,4 @@
-function to_plottable(subj::Union{VitroForm, UirData}; denseplot = true, plotdensity = 10_000)
+function to_plottable(subj::Union{InVitroForm, UirData}; denseplot = true, plotdensity = 10_000)
   t = subj.time
   start = t[1]; stop = t[end]
   if denseplot
@@ -9,7 +9,7 @@ function to_plottable(subj::Union{VitroForm, UirData}; denseplot = true, plotden
   plott, subj.m(plott, subj.pmin)
 end
 
-@recipe function f(subj::Union{VitroForm, UirData}; denseplot = true, plotdensity = 10_000)
+@recipe function f(subj::Union{InVitroForm, UirData}; denseplot = true, plotdensity = 10_000)
   t = subj.time
   start = t[1]; stop = t[end]
   if denseplot

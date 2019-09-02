@@ -1,14 +1,9 @@
 # main function for IVIVC pipeline
 
-# do_ivivc(; vitro_data::AbstractString, ref_vivo_data::AbstractString,
-#   vivo_data::AbstractString, kwargs...) = do_ivivc(read_vitro(vitro_data, kwargs...),
-#                       read_vivo(ref_vivo_data, kwargs...), read_vivo(vivo_data, kwargs...),
-#                       kwargs...)
-
-struct do_ivivc{pType, paramsType, fabsType, aucType}
-  vitro_data::VitroData
+struct IVIVCModel{pType, paramsType, fabsType, aucType}
+  vitro_data::InVitroData
   uir_data::UirData
-  vivo_data::VivoData
+  vivo_data::InVivoData
   ka::pType
   kel::pType
   V::pType
@@ -27,7 +22,7 @@ struct do_ivivc{pType, paramsType, fabsType, aucType}
   pmin::paramsType                           # optimized params
 end
 
-function do_ivivc(vitro_data, uir_data, vivo_data;
+function IVIVCModel(vitro_data, uir_data, vivo_data;
                     vitro_model=nothing,
                     vitro_model_metric=:aic,
                     uir_frac = 1.0,
@@ -100,12 +95,12 @@ function do_ivivc(vitro_data, uir_data, vivo_data;
   mfit = Optim.optimize(od, lb, ub, p, Fminbox(opt_alg))
   pmin = Optim.minimizer(mfit)
 
-  do_ivivc{typeof(ka), typeof(pmin), typeof(all_fabs), typeof(all_auc_inf)}(vitro_data, uir_data, vivo_data, ka, kel, V, uir_frac, vitro_model, uir_model, deconvo_method, all_fabs, all_auc_inf,
+  IVIVCModel{typeof(ka), typeof(pmin), typeof(all_fabs), typeof(all_auc_inf)}(vitro_data, uir_data, vivo_data, ka, kel, V, uir_frac, vitro_model, uir_model, deconvo_method, all_fabs, all_auc_inf,
                           m, opt_alg, p, ub, lb, pmin)
 end
 
 # main function for prediction by estimated IVIVC model
-function prediction(A::do_ivivc, form)
+function prediction(A::IVIVCModel, form)
   if(A.deconvo_method != :wn) error("Not implemented yet!!") end
   all_auc_inf, kel, pmin, vitro_data, vivo_data = A.all_auc_inf, A.kel, A.pmin, A.vitro_data, A.vivo_data
   if A.vitro_model == :emax 
@@ -165,7 +160,7 @@ end
 
 get_metric_func() = Dict([(:aic, aic), (:aicc, aicc), (:bic, bic)])
 
-function to_csv(obj::do_ivivc, path=homedir())
+function to_csv(obj::IVIVCModel, path=homedir())
   @unpack vitro_data, vivo_data, uir_model, uir_frac, fabs, ka, kel, V, pmin, vitro_model = obj
   # save estimated params of vitro modeling to csv file
   tmp = collect(values(vitro_data[1]))
