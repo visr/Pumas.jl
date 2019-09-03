@@ -63,7 +63,7 @@ FittedPumasModel
 Successful minimization:                true
 
 Likelihood approximation:        Pumas.FOCEI
-Objective function value:            45.6238
+Objective function value:          45.623789
 Total number of observation records:      20
 Number of active observation records:     20
 Number of subjects:                       10
