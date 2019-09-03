@@ -36,3 +36,7 @@
      include("error_handling.jl") end
 @time @safetestset "Automatic Differentiation Tests" begin
      include("ad_tests.jl") end
+
+# Do not put into a module because processes are spawned
+@time @testset "Parallelism Tests" begin
+     include("parallel.jl") end
