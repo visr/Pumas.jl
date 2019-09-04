@@ -4,8 +4,8 @@ import DiffResults: DiffResult
 PDMats.unwhiten(C::PDiagMat, x::StridedVector) = sqrt.(C.diag) .* x
 PDMats.unwhiten(C::PDiagMat, x::AbstractVector) = sqrt.(C.diag) .* x
 
-const DEFAULT_RELTOL=1e-6
-const DEFAULT_ABSTOL=1e-12
+const DEFAULT_ESTIMATION_RELTOL=1e-8
+const DEFAULT_ESTIMATION_ABSTOL=1e-12
 
 abstract type LikelihoodApproximation end
 struct NaivePooled <: LikelihoodApproximation end
@@ -77,8 +77,8 @@ function derived_dist(model::PumasModel,
                       # This is the only entry point to the ODE solver for the estimation code
                       # so we need to make sure to set default tolerances here if they haven't
                       # been set elsewhere.
-                      reltol=DEFAULT_RELTOL,
-                      abstol=DEFAULT_ABSTOL,
+                      reltol=DEFAULT_ESTIMATION_RELTOL,
+                      abstol=DEFAULT_ESTIMATION_ABSTOL,
                       kwargs...)
   rtrf = totransform(model.random(param))
   randeffs = TransformVariables.transform(rtrf, vrandeffs)
@@ -93,8 +93,9 @@ end
                               # This is the only entry point to the ODE solver for the estimation code
                               # so we need to make sure to set default tolerances here if they haven't
                               # been set elsewhere.
-                              reltol=DEFAULT_RELTOL,
-                              abstol=DEFAULT_ABSTOL,
+                              reltol=DEFAULT_ESTIMATION_RELTOL,
+                              abstol=DEFAULT_ESTIMATION_ABSTOL,
+                              alg = AutoVern7(Rodas5()),
                               kwargs...)
   # Extract a vector of the time stamps for the observations
   obstimes = subject.time
@@ -290,11 +291,11 @@ function _orth_empirical_bayes!(
   approx::Union{FOCE,FOCEI,Laplace,LaplaceI},
   args...;
   # We explicitly use reltol to compute the right step size for finite difference based gradient
-  reltol=DEFAULT_RELTOL,
+  reltol=DEFAULT_ESTIMATION_RELTOL,
   fdtype=Val{:central}(),
   fdrelstep=_fdrelstep(m, param, reltol, fdtype),
   kwargs...)
-
+  
   randeffstransform = totransform(m.random(param))
   cost = vηorth -> penalized_conditional_nll(
     m,
@@ -591,7 +592,7 @@ function marginal_nll_gradient!(g::AbstractVector,
                                 trf::TransformVariables.TransformTuple,
                                 args...;
                                 # We explicitly use reltol to compute the right step size for finite difference based gradient
-                                reltol=DEFAULT_RELTOL,
+                                reltol=DEFAULT_ESTIMATION_RELTOL,
                                 fdtype=Val{:central}(),
                                 fdrelstep=_fdrelstep(model, param, reltol, fdtype),
                                 fdabsstep=fdrelstep^2,
@@ -676,18 +677,18 @@ function marginal_nll_gradient!(g::AbstractVector,
   return g
 end
 
-function _fdrelstep(model::PumasModel, param::NamedTuple, reltol::AbstractFloat, ::Val{:forward})
+function _fdrelstep(model::PumasModel, param::NamedTuple, reltol, ::Val{:forward})
   if model.prob isa ExplicitModel
     return sqrt(eps(numtype(param)))
   else
-    return max(reltol, sqrt(eps(numtype(param))))
+    return max(norm(reltol), sqrt(eps(numtype(param))))
   end
 end
-function _fdrelstep(model::PumasModel, param::NamedTuple, reltol::AbstractFloat, ::Val{:central})
+function _fdrelstep(model::PumasModel, param::NamedTuple, reltol, ::Val{:central})
   if model.prob isa ExplicitModel
     return cbrt(eps(numtype(param)))
   else
-    return max(reltol, cbrt(eps(numtype(param))))
+    return max(norm(reltol), cbrt(eps(numtype(param))))
   end
 end
 
@@ -703,7 +704,7 @@ function marginal_nll_gradient!(g::AbstractVector,
                                 trf::TransformVariables.TransformTuple,
                                 args...;
                                 # We explicitly use reltol to compute the right step size for finite difference based gradient
-                                reltol=DEFAULT_RELTOL,
+                                reltol=DEFAULT_ESTIMATION_RELTOL,
                                 fdtype=Val{:central}(),
                                 fdrelstep=_fdrelstep(model, param, reltol, fdtype),
                                 fdabsstep=fdrelstep^2,
@@ -1163,7 +1164,7 @@ function _observed_information(f::FittedPumasModel,
                                args...;
                                # We explicitly use reltol to compute the right step size for finite difference based gradient
                                # The tolerance has to be stricter when computing the covariance than during estimation
-                               reltol=abs2(DEFAULT_RELTOL),
+                               reltol=abs2(DEFAULT_ESTIMATION_RELTOL),
                                kwargs...) where Score
   # Transformation the NamedTuple of parameters to a Vector
   # without applying any bounds (identity transform)
