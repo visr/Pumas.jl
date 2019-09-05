@@ -2,7 +2,7 @@ using Pumas, Test
 
 @testset "Poisson model" begin
 
-  df = read_pumas(example_nmtran_data("sim_poisson"),cvs = [:dose])
+  df = read_pumas(example_data("sim_poisson"),cvs = [:dose])
 
 
   poisson_model = @model begin

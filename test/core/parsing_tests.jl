@@ -1,7 +1,7 @@
 using Pumas, Test, CSV
 
 @testset "nmtran" begin
-  data = read_pumas(example_nmtran_data("event_data/data1"))
+  data = read_pumas(example_data("event_data/data1"))
   @test_nowarn show(data)
 
   @test getproperty.(data[1].events, :time) == 0:12:36
@@ -28,7 +28,7 @@ using Pumas, Test, CSV
   end
 end
 @testset "Time Variant Covariates" begin
-  data = read_pumas(example_nmtran_data("time_varying_covariates"), cvs = [:weight, :dih])
+  data = read_pumas(example_data("time_varying_covariates"), cvs = [:weight, :dih])
   @test data[1].covariates.weight |> (x -> isa(x, AbstractVector{Int}) && length(x) == 7)
   @test data[1].covariates.dih == 2
 end
