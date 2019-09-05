@@ -1,7 +1,7 @@
 using Test, SafeTestsets
 using Pumas, LinearAlgebra, Optim, StatsBase
 
-if gorup == "All" || group == "NLMNE_Basic"
+if group == "All" || group == "NLMNE_Basic"
   @time @safetestset "Types (constructors, api, etc...)"             begin include("types.jl")                  end
 end
 
