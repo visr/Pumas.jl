@@ -1010,12 +1010,14 @@ _∂²l∂η²(nl_d::ForwardDiff.Dual,
         args...; kwargs...) = throw(ArgumentError("Distribution is current not supported for the $approx approximation. Please consider a different likelihood approximation."))
 
 # Fitting methods
-struct FittedPumasModel{T1<:PumasModel,T2<:Population,T3,T4<:LikelihoodApproximation, T5}
+struct FittedPumasModel{T1<:PumasModel,T2<:Population,T3,T4<:LikelihoodApproximation, T5, T6, T7}
   model::T1
   data::T2
   optim::T3
   approx::T4
   vvrandeffsorth::T5
+  args::T6
+  kwargs::T7
 end
 
 function DEFAULT_OPTIMIZE_FN(cost, p, callback)
@@ -1119,7 +1121,7 @@ function Distributions.fit(m::PumasModel,
     end
   end
 
-  return FittedPumasModel(m, population, o, approx, vvrandeffsorth)
+  return FittedPumasModel(m, population, o, approx, vvrandeffsorth, args, kwargs)
 end
 
 function Distributions.fit(m::PumasModel,
