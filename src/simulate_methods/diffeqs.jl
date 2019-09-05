@@ -1,4 +1,7 @@
-function _build_diffeq_problem(m::PumasModel, subject::Subject, args...; saveat=Float64[], save_discont=isempty(saveat), continuity=:right, kwargs...)
+function _build_diffeq_problem(m::PumasModel, subject::Subject, args...;
+                               saveat=Float64[],
+                               save_discont= isnothing(saveat) || isempty(saveat),
+                               continuity=:right, kwargs...)
   prob = typeof(m.prob) <: DiffEqBase.AbstractJumpProblem ? m.prob.prob : m.prob
   tspan = prob.tspan
   col = prob.p
@@ -26,7 +29,9 @@ function _build_diffeq_problem(m::PumasModel, subject::Subject, args...; saveat=
   # Remake problem of correct type
   new_f = make_function(prob,fd)
 
-  remake(m.prob; f=new_f, u0=Tu0, tspan=tspan, callback=cb, saveat=saveat, tstops = tstops, save_first = tspan[1] ∈ saveat)
+  remake(m.prob; f=new_f, u0=Tu0, tspan=tspan, callback=cb, saveat=saveat,
+                 tstops = tstops,
+                 save_first = !isnothing(saveat) && tspan[1] ∈ saveat)
 end
 
 using DiffEqBase: RECOMPILE_BY_DEFAULT

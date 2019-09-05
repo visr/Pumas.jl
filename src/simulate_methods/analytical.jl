@@ -5,12 +5,12 @@ function DiffEqBase.solve(prob::PresetAnalyticalPKProblem,args...;kwargs...)
                                         prob.numprob.kwargs[:saveat] : nothing)
   if saveat !== nothing
     t = saveat
-    u = [[pksol(numsol.t[i]);numsol[i]] for i in 1:length(numsol)]
+    u = [[prob.pksol(numsol.t[i]);numsol[i]] for i in 1:length(numsol)]
   else
     t = numsol.t
     u = numsol.u
   end
-  return AnalyticalPKSolution(u,t,pksol,numsol)
+  return AnalyticalPKSolution(u,t,prob.pksol,numsol)
 end
 
 function _build_analytical_problem(m::PumasModel, subject::Subject, tspan, col,

@@ -114,7 +114,7 @@ This internal function is just so that the collation doesn't need to
 be repeated in the other API functions
 """
 function _problem(m::PumasModel, subject, col, args...;
-                tspan=nothing, saveat=nothing, kwargs...)
+                tspan=nothing, saveat=Float64[], kwargs...)
   m.prob === nothing && return nothing
   if tspan === nothing
     tspan = float.(timespan(subject,tspan,saveat))
@@ -127,7 +127,7 @@ function _problem(m::PumasModel, subject, col, args...;
     pksol = solve(_prob1,args...;kwargs...)
     _col = (col...,___pk=pksol)
     u0  = m.init(col, tspan[1])
-    _prob = PresetAnalyticalPKProblem(remake(m.prob.prob2; p=_col, u0=u0, tspan=tspan, saveat=saveat))
+    _prob = PresetAnalyticalPKProblem(remake(m.prob.prob2; p=_col, u0=u0, tspan=tspan, saveat=saveat),pksol)
   else
     u0  = m.init(col, tspan[1])
     mtmp = PumasModel(m.param,
@@ -179,11 +179,12 @@ to be repeated in the other API functions
 
   # create solution object. By passing saveat=obstimes, we compute the solution only
   # at obstimes such that we can simply pass solution.u to m.derived
-  _prob = _problem(m, subject, collated, args...; saveat=obstimes, kwargs...)
-  sol = solve(_prob,args...;reltol=reltol, abstol=abstol, alg=alg, kwargs...)
-  if sol === nothing
-    dist = m.derived(collated, sol, obstimes, subject)
+  _saveat = obstimes === nothing ? Float64[] : obstimes
+  _prob = _problem(m, subject, collated, args...; saveat=_saveat, kwargs...)
+  if _prob === nothing
+    dist = m.derived(collated, nothing, obstimes, subject)
   else
+    sol = solve(_prob,args...;reltol=reltol, abstol=abstol, alg=alg, kwargs...)
     # if solution contains NaN return Inf
     if (sol.retcode != :Success && sol.retcode != :Terminated) ||
       # FIXME! Make this uniform across the two solution types
@@ -229,7 +230,7 @@ function simobs(m::PumasModel, subject::Subject,
                           throw(ArgumentError("obstimes is empty."))
   prob = _problem(m, subject, col, args...; saveat=saveat, kwargs...)
   alg = m.prob isa ExplicitModel ? nothing : alg=AutoTsit5(Rosenbrock23())
-  sol = solve(prob, args...; alg=alg, kwargs...)
+  sol = prob !== nothing ? solve(prob, args...; alg=alg, kwargs...) : nothing
   derived = m.derived(col,sol,obstimes,subject)
   obs = m.observed(col,sol,obstimes,map(_rand,derived),subject)
   SimulatedObservations(subject,obstimes,obs)
