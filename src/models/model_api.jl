@@ -139,7 +139,7 @@ function _solve(m::PumasModel, subject, col, args...;
                      m.derived,
                      m.observed)
     _prob = _build_diffeq_problem(mtmp, subject, args...;saveat=saveat, kwargs...)
-    return _solve_diffeq_problem(_prob,args...;kwargs...)
+    return solve(_prob,args...;alg=AutoTsit5(Rosenbrock23()),kwargs...)
   end
 end
 

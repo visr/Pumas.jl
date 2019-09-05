@@ -1,4 +1,4 @@
-function _build_diffeq_problem(m::PumasModel, subject::Subject, args...; saveat=Float64[], save_discont=isempty(saveat), continuity=:right, alg=AutoTsit5(Rosenbrock23()), kwargs...)
+function _build_diffeq_problem(m::PumasModel, subject::Subject, args...; saveat=Float64[], save_discont=isempty(saveat), continuity=:right, kwargs...)
   prob = typeof(m.prob) <: DiffEqBase.AbstractJumpProblem ? m.prob.prob : m.prob
   tspan = prob.tspan
   col = prob.p
@@ -21,20 +21,16 @@ function _build_diffeq_problem(m::PumasModel, subject::Subject, args...; saveat=
   tstops,cb = ith_subject_cb(col,subject,Tu0,tspan[1],typeof(prob),saveat,save_discont,continuity)
   Tt = promote_type(numtype(tstops), numtype(tspan))
   tspan = Tt.(tspan)
-  prob.callback != nothing && (cb = CallbackSet(cb, prob.callback))
+  :callback ∈ keys(prob.kwargs) && (cb = CallbackSet(cb, prob.kwargs[:callback]))
 
   # Remake problem of correct type
   new_f = make_function(prob,fd)
 
-  remake(m.prob; f=new_f, u0=Tu0, tspan=tspan, callback=CallbackSet(cb,prob.callback), saveat=saveat, tstops = tstops)
+  remake(m.prob; f=new_f, u0=Tu0, tspan=tspan, callback=cb, saveat=saveat, tstops = tstops, save_first = tspan[1] ∈ saveat)
 end
 
 function _solve_diffeq_problem(_prob, args...; saveat=Float64[], tstops=Float64[], save_discont=isempty(saveat), continuity=:right, alg=AutoTsit5(Rosenbrock23()), kwargs...)
-  sol = solve(_prob,alg,args...;
-              saveat = saveat,
-              save_first = tspan[1] ∈ saveat,
-              tstops=tstops,   # extra times that the timestepping algorithm must step to
-              kwargs...)
+  sol = solve(_prob,alg,args...;kwargs...)
 end
 
 using DiffEqBase: RECOMPILE_BY_DEFAULT
