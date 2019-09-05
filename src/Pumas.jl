@@ -47,7 +47,7 @@ include("plotting/plotting.jl")
 
 @reexport using .NCA
 
-example_nmtran_data(filename) = joinpath(joinpath(@__DIR__, ".."),"examples/"*filename*".csv")
+example_data(filename) = joinpath(joinpath(@__DIR__, ".."),"examples/"*filename*".csv")
 
 export Subject, Population, DosageRegimen
 export PumasModel, init_param, init_randeffs, sample_randeffs
@@ -56,7 +56,7 @@ export tad, eventnum
 export conditional_nll
 export predict, residuals, wresiduals, empirical_bayes
 export ηshrinkage, ϵshrinkage
-export read_pumas, example_nmtran_data
+export read_pumas, example_data
 export @model, @nca, @tvcov
 # From StatsBase
 export fit, stderror, vcov, aic, bic, deviance, informationmatrix
