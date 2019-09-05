@@ -2,7 +2,7 @@ using Pumas.NCA, Test, CSV
 using Pumas
 using Random
 
-file = Pumas.example_nmtran_data("nca_test_data/patient_data_test_sk")
+file = Pumas.example_data("nca_test_data/patient_data_test_sk")
 df = CSV.read(file)
 timeu, concu, amtu = u"hr", u"mg/L", u"mg"
 df[!,:route] .= "inf"

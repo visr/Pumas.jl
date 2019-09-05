@@ -2,7 +2,7 @@ using Pumas, LinearAlgebra
 
 @testset "Test informationmatrix with warfarin data" begin
 
-  data = read_pumas(example_nmtran_data("warfarin"))
+  data = read_pumas(example_data("warfarin"))
 
   model = @model begin
 

@@ -1,7 +1,7 @@
 using Test
 using Pumas, LinearAlgebra, Optim
 
-data = read_pumas(example_nmtran_data("sim_data_model1"))
+data = read_pumas(example_data("sim_data_model1"))
 
 #likelihood tests from NLME.jl
 #-----------------------------------------------------------------------# Test 1
