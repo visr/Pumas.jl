@@ -138,8 +138,8 @@ function _solve(m::PumasModel, subject, col, args...;
                      remake(m.prob; p=col, u0=u0, tspan=tspan),
                      m.derived,
                      m.observed)
-    _prob,tstops = _build_diffeq_problem(mtmp, subject, args...;saveat=saveat, kwargs...)
-    return _solve_diffeq_problem(_prob,args...;saveat=saveat,tstops=tstops,kwargs...)
+    _prob = _build_diffeq_problem(mtmp, subject, args...;saveat=saveat, kwargs...)
+    return _solve_diffeq_problem(_prob,args...;kwargs...)
   end
 end
 

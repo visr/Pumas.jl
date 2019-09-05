@@ -26,8 +26,7 @@ function _build_diffeq_problem(m::PumasModel, subject::Subject, args...; saveat=
   # Remake problem of correct type
   new_f = make_function(prob,fd)
 
-  _prob = remake(m.prob; callback=CallbackSet(cb,prob.callback), f=new_f, u0=Tu0, tspan=tspan)
-  _prob,tstops
+  remake(m.prob; f=new_f, u0=Tu0, tspan=tspan, callback=CallbackSet(cb,prob.callback), saveat=saveat, tstops = tstops)
 end
 
 function _solve_diffeq_problem(_prob, args...; saveat=Float64[], tstops=Float64[], save_discont=isempty(saveat), continuity=:right, alg=AutoTsit5(Rosenbrock23()), kwargs...)
