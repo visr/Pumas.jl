@@ -78,7 +78,9 @@ function DiffEqBase.solve(m::PumasModel, subject::Subject,
                           args...; kwargs...)
   m.prob === nothing && return nothing
   col = m.pre(param, randeffs, subject)
-  _solve(m,subject,col,args...;saveat=saveat,kwargs...)
+  prob = _problem(m,subject,col,args...;saveat=saveat,kwargs...)
+  alg = m.prob isa ExplicitModel ? nothing : alg=AutoTsit5(Rosenbrock23())
+  solve(prob,args...;alg=alg,kwargs...)
 end
 
 @enum ParallelType Serial=1 Threading=2 Distributed=3 SplitThreads=4
@@ -106,7 +108,7 @@ end
 This internal function is just so that the collation doesn't need to
 be repeated in the other API functions
 """
-function _solve(m::PumasModel, subject, col, args...;
+function _problem(m::PumasModel, subject, col, args...;
                 tspan=nothing, saveat=nothing, kwargs...)
   m.prob === nothing && return nothing
   if tspan === nothing
@@ -115,22 +117,12 @@ function _solve(m::PumasModel, subject, col, args...;
 
   if m.prob isa ExplicitModel
     _prob = _build_analytical_problem(m, subject, tspan, col, args...;kwargs...)
-    return solve(_prob,args...;kwargs...)
   elseif m.prob isa AnalyticalPKProblem
     _prob = _build_analytical_problem(m, subject, tspan, col, args...;kwargs...)
     pksol = solve(_prob,args...;kwargs...)
     _col = (col...,___pk=pksol)
     u0  = m.init(col, tspan[1])
-    _prob = remake(m.prob.prob2; p=_col, u0=u0, tspan=tspan, saveat=saveat)
-    numsol = solve(_prob,args...;alg=AutoTsit5(Rosenbrock23()),kwargs...)
-    if saveat !== nothing
-      t = saveat
-      u = [[pksol(numsol.t[i]);numsol[i]] for i in 1:length(numsol)]
-    else
-      t = numsol.t
-      u = numsol.u
-    end
-    return AnalyticalPKSolution(u,t,pksol,numsol)
+    _prob = PresetAnalyticalPKProblem(remake(m.prob.prob2; p=_col, u0=u0, tspan=tspan, saveat=saveat))
   else
     u0  = m.init(col, tspan[1])
     mtmp = PumasModel(m.param,
@@ -141,8 +133,8 @@ function _solve(m::PumasModel, subject, col, args...;
                      m.derived,
                      m.observed)
     _prob = _build_diffeq_problem(mtmp, subject, args...;saveat=saveat, kwargs...)
-    return solve(_prob,args...;alg=AutoTsit5(Rosenbrock23()),kwargs...)
   end
+  _prob
 end
 
 #=
@@ -177,7 +169,9 @@ function simobs(m::PumasModel, subject::Subject,
   col = m.pre(param, randeffs, subject)
   m.prob !== nothing && (isnothing(obstimes) || isempty(obstimes)) &&
                           throw(ArgumentError("obstimes is empty."))
-  sol = _solve(m, subject, col, args...; saveat=saveat, kwargs...)
+  prob = _problem(m, subject, col, args...; saveat=saveat, kwargs...)
+  alg = m.prob isa ExplicitModel ? nothing : alg=AutoTsit5(Rosenbrock23())
+  sol = solve(prob, args...; alg=alg, kwargs...)
   derived = m.derived(col,sol,obstimes,subject)
   obs = m.observed(col,sol,obstimes,map(_rand,derived),subject)
   SimulatedObservations(subject,obstimes,obs)

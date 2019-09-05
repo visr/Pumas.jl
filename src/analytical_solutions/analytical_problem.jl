@@ -28,4 +28,8 @@ struct AnalyticalPKProblem{P1<:ExplicitModel,P2}
   prob2::P2
 end
 
+struct PresetAnalyticalPKProblem{P}
+  numprob::P
+end
+
 export PKPDAnalyticalProblem, AnalyticalPKProblem

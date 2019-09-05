@@ -1,5 +1,20 @@
+function DiffEqBase.solve(prob::PresetAnalyticalPKProblem,args...;kwargs...)
+  numsol = solve(prob.numprob,args...;prob.numprob.kwargs...,kwargs...)
+  saveat = :saveat ∈ keys(kwargs) ? kwargs[:saveat] :
+          (:saveat ∈ keys(prob.numprob.kwargs) ?
+                                        prob.numprob.kwargs[:saveat] : nothing)
+  if saveat !== nothing
+    t = saveat
+    u = [[pksol(numsol.t[i]);numsol[i]] for i in 1:length(numsol)]
+  else
+    t = numsol.t
+    u = numsol.u
+  end
+  return AnalyticalPKSolution(u,t,pksol,numsol)
+end
+
 function _build_analytical_problem(m::PumasModel, subject::Subject, tspan, col,
-                           args...; kwargs...)
+                                   args...; kwargs...)
   f = m.prob isa ExplicitModel ? m.prob : m.prob.pkprob
   u0 = pk_init(f)
 
@@ -20,8 +35,8 @@ function _build_analytical_problem(m::PumasModel, subject::Subject, tspan, col,
   prob = PKPDAnalyticalProblem{false}(f, Tu0, Ttspan,  events, times, col, bioav)
 end
 
-function DiffEqBase.__solve(prob::PKPDAnalyticalProblem,
-                           args...; continuity = :right, kwargs...)
+function DiffEqBase.solve(prob::PKPDAnalyticalProblem,
+                          args...; continuity = :right, kwargs...)
   f = prob.f
   Tu0 = prob.u0
   Ttspan = prob.tspan
