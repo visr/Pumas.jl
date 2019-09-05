@@ -1,11 +1,6 @@
-import DiffResults: DiffResult
-
 # Some PDMats piracy. Should be possible to remove once we stop using MvNormal
 PDMats.unwhiten(C::PDiagMat, x::StridedVector) = sqrt.(C.diag) .* x
 PDMats.unwhiten(C::PDiagMat, x::AbstractVector) = sqrt.(C.diag) .* x
-
-const DEFAULT_ESTIMATION_RELTOL=1e-8
-const DEFAULT_ESTIMATION_ABSTOL=1e-12
 
 abstract type LikelihoodApproximation end
 struct NaivePooled <: LikelihoodApproximation end
@@ -17,6 +12,9 @@ struct FOCEI <: LikelihoodApproximation end
 struct Laplace <: LikelihoodApproximation end
 struct LaplaceI <: LikelihoodApproximation end
 struct HCubeQuad <: LikelihoodApproximation end
+
+zval(d) = 0.0
+zval(d::Distributions.Normal{T}) where {T} = zero(T)
 
 """
     _lpdf(d,x)
@@ -69,61 +67,6 @@ end
   end
 end
 
-function derived_dist(model::PumasModel,
-                      subject::Subject,
-                      param::NamedTuple,
-                      vrandeffs::AbstractArray,
-                      args...;
-                      # This is the only entry point to the ODE solver for the estimation code
-                      # so we need to make sure to set default tolerances here if they haven't
-                      # been set elsewhere.
-                      reltol=DEFAULT_ESTIMATION_RELTOL,
-                      abstol=DEFAULT_ESTIMATION_ABSTOL,
-                      kwargs...)
-  rtrf = totransform(model.random(param))
-  randeffs = TransformVariables.transform(rtrf, vrandeffs)
-  dist = derived_dist(model, subject, param, randeffs, args...; kwargs...)
-end
-# inlined beacuse it was taken from conditional_nll_ext below that is inlined
-@inline function derived_dist(m::PumasModel,
-                              subject::Subject,
-                              param::NamedTuple,
-                              randeffs::NamedTuple,
-                              args...;
-                              # This is the only entry point to the ODE solver for the estimation code
-                              # so we need to make sure to set default tolerances here if they haven't
-                              # been set elsewhere.
-                              reltol=DEFAULT_ESTIMATION_RELTOL,
-                              abstol=DEFAULT_ESTIMATION_ABSTOL,
-                              alg = AutoVern7(Rodas5()),
-                              kwargs...)
-  # Extract a vector of the time stamps for the observations
-  obstimes = subject.time
-  isnothing(obstimes) && throw(ArgumentError("no observations for subject"))
-
-  # collate that arguments
-  collated = m.pre(param, randeffs, subject)
-
-  # create solution object. By passing saveat=obstimes, we compute the solution only
-  # at obstimes such that we can simply pass solution.u to m.derived
-  solution = _solve(m, subject, collated, args...; saveat=obstimes, reltol=reltol, abstol=abstol, kwargs...)
-  if solution === nothing
-    dist = m.derived(collated, solution, obstimes, subject)
-  else
-    # if solution contains NaN return Inf
-    if (solution.retcode != :Success && solution.retcode != :Terminated) ||
-      # FIXME! Make this uniform across the two solution types
-      any(x->any(isnan,x), solution isa PKPDAnalyticalSolution ? solution(obstimes[end]) : solution.u[end])
-      # FIXME! Do we need to make this type stable?
-      return nothing
-    end
-
-    # extract distributions
-    dist = m.derived(collated, solution, obstimes, subject)
-  end
-  dist
-end
-
 """
     conditional_nll(m::PumasModel, subject::Subject, param, randeffs, args...; kwargs...)
 
@@ -137,7 +80,7 @@ the derived produces distributions.
                                  randeffs::NamedTuple,
                                  args...;
                                  kwargs...)
-    dist = derived_dist(m, subject, param, randeffs, args...; kwargs...)
+    dist = _derived(m, subject, param, randeffs, args...; kwargs...)
     conditional_nll(m, subject, param, randeffs, dist)
 end
 
@@ -171,14 +114,14 @@ function conditional_nll(m::PumasModel,
                          randeffs::NamedTuple,
                          approx::Union{FO,FOCE,Laplace},
                          args...; kwargs...)
-  dist = derived_dist(m, subject, param, randeffs, args...;kwargs...)
+  dist = _derived(m, subject, param, randeffs, args...;kwargs...)
   l = conditional_nll(m, subject, param, randeffs, dist)
 
   # If (negative) likehood is infinity or the model is Homoscedastic, we just return l
   if isinf(l) || _is_homoscedastic(dist.dv)
     return l
   else # compute the adjusted (negative) likelihood where the variance is evaluated at η=0
-    dist0 = derived_dist(m, subject, param, map(zero, randeffs), args...; kwargs...)
+    dist0 = _derived(m, subject, param, map(zero, randeffs), args...; kwargs...)
     return _conditional_nll(dist.dv, dist0.dv, subject)
   end
 end
@@ -775,7 +718,7 @@ function _derived_vηorth_gradient(
   # tagging system to work properly
   __derived =  vηorth -> begin
     randeffs = TransformVariables.transform(totransform(m.random(param)), vηorth)
-    return derived_dist(m, subject, param, randeffs, args...; kwargs...)
+    return _derived(m, subject, param, randeffs, args...; kwargs...)
   end
   # Construct vector of dual numbers for the random effects to track the partial derivatives
   cfg = ForwardDiff.JacobianConfig(__derived, vrandeffsorth)
@@ -901,7 +844,7 @@ function _∂²l∂η²(dv_d::AbstractVector{<:Union{Normal,LogNormal}},
     return _∂²l∂η²(subject.observations.dv, dv_d, first(dv_d), FOCE())
   else # in the Heteroscedastic case, compute the variances at η=0
     randeffstransform = totransform(m.random(param))
-    dist_0 = derived_dist(
+    dist_0 = _derived(
       m,
       subject,
       param,
@@ -1319,7 +1262,7 @@ function _expected_information(m::PumasModel,
   trf = toidentitytransform(m.param)
   vparam = TransformVariables.inverse(trf, param)
 
-  # Costruct closure for calling derived_dist as a function
+  # Costruct closure for calling _derived as a function
   # of a random effects vector. This makes it possible for ForwardDiff's
   # tagging system to work properly
   __E_and_V = _param -> _E_and_V(m, subject, TransformVariables.transform(trf, _param), vrandeffsorth, FO(), args...; kwargs...)
@@ -1420,11 +1363,11 @@ function _E_and_V(m::PumasModel,
 
   randeffstransform = totransform(m.random(param))
   y = subject.observations.dv
-  dist = derived_dist(m, subject, param, TransformVariables.transform(randeffstransform, vrandeffsorth))
+  dist = _derived(m, subject, param, TransformVariables.transform(randeffstransform, vrandeffsorth))
   F = ForwardDiff.jacobian(
     _vrandeffs -> begin
       _randeffs = TransformVariables.transform(randeffstransform, _vrandeffs)
-      return mean.(derived_dist(m, subject, param, _randeffs).dv)
+      return mean.(_derived(m, subject, param, _randeffs).dv)
     end,
     vrandeffsorth
   )
@@ -1441,13 +1384,13 @@ function _E_and_V(m::PumasModel,
 
   randeffstransform = totransform(m.random(param))
   y = subject.observations.dv
-  dist0 = derived_dist(m, subject, param, TransformVariables.transform(randeffstransform, zero(vrandeffsorth)))
-  dist  = derived_dist(m, subject, param, TransformVariables.transform(randeffstransform, vrandeffsorth))
+  dist0 = _derived(m, subject, param, TransformVariables.transform(randeffstransform, zero(vrandeffsorth)))
+  dist  = _derived(m, subject, param, TransformVariables.transform(randeffstransform, vrandeffsorth))
 
   F = ForwardDiff.jacobian(
     _vrandeffs -> begin
       _randeffs = TransformVariable.transform(randeffstransform, _vrandeffs)
-      return mean.(derived_dist(m, subject, param, _randeffs).dv)
+      return mean.(_derived(m, subject, param, _randeffs).dv)
     end,
     vrandeffsorth
   )
