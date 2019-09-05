@@ -29,10 +29,6 @@ function _build_diffeq_problem(m::PumasModel, subject::Subject, args...; saveat=
   remake(m.prob; f=new_f, u0=Tu0, tspan=tspan, callback=cb, saveat=saveat, tstops = tstops, save_first = tspan[1] ∈ saveat)
 end
 
-function _solve_diffeq_problem(_prob, args...; saveat=Float64[], tstops=Float64[], save_discont=isempty(saveat), continuity=:right, alg=AutoTsit5(Rosenbrock23()), kwargs...)
-  sol = solve(_prob,alg,args...;kwargs...)
-end
-
 using DiffEqBase: RECOMPILE_BY_DEFAULT
 # We force `make_function` to call the constructor directly, so that
 # `ODEFunction` won't try to check the existence of `f(Val{:analytic}, ...)`
@@ -51,22 +47,6 @@ function build_pkpd_problem(_prob::DiffEqBase.AbstractJumpProblem,set_parameters
                                             _prob.discrete_jump_aggregation,
                                             _prob.jump_callback,_prob.variable_jumps),tstops
 end
-
-# Have separate dispatches to pass along extra pieces of the problem
-#function problem_final_dispatch(prob::DiffEqBase.ODEProblem,true_f,u0,tspan,p,cb)
-#  ODEProblem{DiffEqBase.isinplace(prob)}(true_f,u0,tspan,p,callback=cb)
-#end
-#
-#function problem_final_dispatch(prob::DiffEqBase.SDEProblem,true_f,u0,tspan,p,cb)
-#  SDEProblem{DiffEqBase.isinplace(prob)}(true_f,prob.g,u0,tspan,p,callback=cb)
-#end
-#
-#function problem_final_dispatch(prob::DiffEqBase.DDEProblem,true_f,u0,tspan,p,cb)
-#  DDEProblem{DiffEqBase.isinplace(prob)}(true_f,prob.h,u0,tspan,prob.p,
-#                   constant_lags = prob.constant_lags,
-#                   dependent_lags = prob.dependent_lags,
-#                   callback=cb)
-#end
 
 function ith_subject_cb(p,datai::Subject,u0,t0,ProbType,saveat,save_discont,continuity)
   ss_abstol = 1e-12 # TODO: Make an option

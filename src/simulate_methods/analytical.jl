@@ -1,5 +1,5 @@
-function _solve_analytical(m::PumasModel, subject::Subject, tspan, col,
-                           args...; continuity = :right, kwargs...)
+function _build_analytical_problem(m::PumasModel, subject::Subject, tspan, col,
+                           args...; kwargs...)
   f = m.prob isa ExplicitModel ? m.prob : m.prob.pkprob
   u0 = pk_init(f)
 
@@ -13,12 +13,23 @@ function _solve_analytical(m::PumasModel, subject::Subject, tspan, col,
     Ttspan = map(float, tspan)
   end
 
-  prob = PKPDAnalyticalProblem{false}(f, Tu0, Ttspan)
-  ss = prob.ss
-
   lags,bioav,time_adjust_rate,duration = get_magic_args(col,Tu0,Ttspan[1])
   events = adjust_event(subject.events,u0,lags,bioav,time_adjust_rate,duration)
   times = sorted_approx_unique(events)
+
+  prob = PKPDAnalyticalProblem{false}(f, Tu0, Ttspan,  events, times, col, bioav)
+end
+
+function DiffEqBase.__solve(prob::PKPDAnalyticalProblem,
+                           args...; continuity = :right, kwargs...)
+  f = prob.f
+  Tu0 = prob.u0
+  Ttspan = prob.tspan
+  col = prob.p
+  bioav = prob.bioav
+  events = prob.events
+  times = prob.times
+
   u = Vector{typeof(Tu0)}(undef, length(times))
   doses = Vector{typeof(Tu0)}(undef, length(times))
   rates = Vector{typeof(Tu0)}(undef, length(times))
@@ -86,13 +97,11 @@ function _solve_analytical(m::PumasModel, subject::Subject, tspan, col,
 
           cur_ev.ss==2 && (Tu0_cache = f(t,t0,Tu0,last_dose,col,rate))
 
-          if ss == nothing
-            Tu0prev = Tu0 .+ 1
-            while norm(Tu0-Tu0prev) > 1e-12
-              Tu0prev = Tu0
-              Tu0 = f(_t1,t0,Tu0,dose,col,_rate)
-              _t2-_t1 > 0 && (Tu0 = f(_t2,_t1,Tu0,zero(Tu0),col,_rate-ss_rate))
-            end
+          Tu0prev = Tu0 .+ 1
+          while norm(Tu0-Tu0prev) > 1e-12
+            Tu0prev = Tu0
+            Tu0 = f(_t1,t0,Tu0,dose,col,_rate)
+            _t2-_t1 > 0 && (Tu0 = f(_t2,_t1,Tu0,zero(Tu0),col,_rate-ss_rate))
           end
 
           rate = _rate
@@ -121,12 +130,10 @@ function _solve_analytical(m::PumasModel, subject::Subject, tspan, col,
           _t1 = t0 + cur_ev.ii
           cur_ev.ss==2 && (Tu0_cache = f(t,t0,Tu0,last_dose,col,rate))
 
-          if ss == nothing
-            Tu0prev = Tu0 .+ 1
-            while norm(Tu0-Tu0prev) > 1e-12
-              Tu0prev = Tu0
-              Tu0 = f(_t1,t0,Tu0,dose,col,_rate)
-            end
+          Tu0prev = Tu0 .+ 1
+          while norm(Tu0-Tu0prev) > 1e-12
+            Tu0prev = Tu0
+            Tu0 = f(_t1,t0,Tu0,dose,col,_rate)
           end
 
           rate = _rate

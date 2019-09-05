@@ -114,13 +114,15 @@ function _solve(m::PumasModel, subject, col, args...;
   end
 
   if m.prob isa ExplicitModel
-    return _solve_analytical(m, subject, tspan, col, args...;kwargs...)
+    _prob = _build_analytical_problem(m, subject, tspan, col, args...;kwargs...)
+    return solve(_prob,args...;kwargs...)
   elseif m.prob isa AnalyticalPKProblem
-    pksol = _solve_analytical(m, subject, tspan, col, args...;kwargs...)
+    _prob = _build_analytical_problem(m, subject, tspan, col, args...;kwargs...)
+    pksol = solve(_prob,args...;kwargs...)
     _col = (col...,___pk=pksol)
     u0  = m.init(col, tspan[1])
-    _prob = remake(m.prob.prob2; p=_col, u0=u0, tspan=tspan)
-    numsol = solve(_prob,args...;saveat=saveat,alg=AutoTsit5(Rosenbrock23()),kwargs...)
+    _prob = remake(m.prob.prob2; p=_col, u0=u0, tspan=tspan, saveat=saveat)
+    numsol = solve(_prob,args...;alg=AutoTsit5(Rosenbrock23()),kwargs...)
     if saveat !== nothing
       t = saveat
       u = [[pksol(numsol.t[i]);numsol[i]] for i in 1:length(numsol)]
