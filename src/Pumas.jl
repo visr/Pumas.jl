@@ -5,7 +5,8 @@ using DiffEqDiffTools, Reexport, StatsBase,
       TreeViews, CSV, ForwardDiff, DiffResults, Optim, PDMats,
       Missings, RecipesBase, StructArrays, RecursiveArrayTools, HCubature,
       Statistics
-using  AdvancedHMC, MCMCChains
+using AdvancedHMC: DiagEuclideanMetric, Hamiltonian, NUTS, Leapfrog, find_good_eps, StanHMCAdaptor, Preconditioner, NesterovDualAveraging
+using MCMCChains: Chains
 
 import DataInterpolations, Loess
 
