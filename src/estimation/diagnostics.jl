@@ -1,12 +1,12 @@
 function StatsBase.residuals(fpm::FittedPumasModel)
   # Return the residuals
-  return [residuals(fpm.model, subject, fpm.param, vrandeffs) for (subject, vrandeffs) in zip(fpm.data, fpm.vvrandeffs)]
+  return [residuals(fpm.model, subject, fpm.param, vrandeffs, args...; kwargs...) for (subject, vrandeffs) in zip(fpm.data, fpm.vvrandeffs)]
 end
-function StatsBase.residuals(model::PumasModel, subject::Subject, param::NamedTuple, vrandeffs::AbstractArray)
+function StatsBase.residuals(model::PumasModel, subject::Subject, param::NamedTuple, vrandeffs::AbstractArray, args...; kwargs...)
   rtrf = totransform(model.random(param))
   randeffs = TransformVariables.transform(rtrf, vrandeffs)
   # Calculated the dependent variable distribution objects
-  dist = derived_dist(model, subject, param, randeffs)
+  dist = derived_dist(model, subject, param, randeffs, args...; kwargs...)
   # Return the residuals
   return residuals(subject, dist)
 end
@@ -45,22 +45,22 @@ struct SubjectResidual{T1, T2, T3, T4}
   subject::T3
   approx::T4
 end
-function wresiduals(fpm::FittedPumasModel, approx=fpm.approx; nsim=nothing)
+function wresiduals(fpm::FittedPumasModel, approx::LikelihoodApproximation=fpm.approx; nsim=nothing)
   subjects = fpm.data
   if approx == fpm.approx
     vvrandeffsorth = fpm.vvrandeffsorth
   else
     # re-estimate under approx
-    vvrandeffsorth = [_orth_empirical_bayes(fpm.model, subject, fpm.param, approx) for subject in subjects]
+    vvrandeffsorth = [_orth_empirical_bayes(fpm.model, subject, fpm.param, approx, fpm.args...; fpm.kwargs...) for subject in subjects]
   end
-  [wresiduals(fpm, subjects[i], vvrandeffsorth[i], approx; nsim=nsim) for i = 1:length(subjects)]
+  [wresiduals(fpm, subjects[i], vvrandeffsorth[i], approx, fpm.args...; nsim=nsim, fpm.kwargs...) for i = 1:length(subjects)]
 end
-function wresiduals(fpm, subject::Subject, randeffs, approx; nsim=nothing)
+function wresiduals(fpm::FittedPumasModel, subject::Subject, randeffs, approx::LikelihoodApproximation, args...; nsim=nothing, kwargs...)
   is_sim = nsim == nothing
   if nsim == nothing
     approx = approx
-    wres = wresiduals(fpm.model, subject, fpm.param, randeffs, approx)
-    iwres = iwresiduals(fpm.model, subject, fpm.param, randeffs, approx)
+    wres = wresiduals(fpm.model, subject, fpm.param, randeffs, approx, args...; kwargs...)
+    iwres = iwresiduals(fpm.model, subject, fpm.param, randeffs, approx, args...; kwargs...)
   else
     approx = nothing
     wres = nothing
@@ -81,23 +81,23 @@ function DataFrames.DataFrame(vresid::Vector{<:SubjectResidual}; include_covaria
   df
 end
 
-function wresiduals(model, subject, param, randeffs, approx::FO)
-  wres(model, subject, param, randeffs)
+function wresiduals(model::PumasModel, subject::Subject, param::NamedTuple, randeffs, approx::FO, args...; kwargs...)
+  wres(model, subject, param, randeffs, args...; kwargs...)
 end
-function wresiduals(model, subject, param, randeffs, approx::FOCE)
-  cwres(model, subject, param, randeffs)
+function wresiduals(model::PumasModel, subject::Subject, param::NamedTuple, randeffs, approx::FOCE, args...; kwargs...)
+  cwres(model, subject, param, randeffs, args...; kwargs...)
 end
-function wresiduals(model, subject, param, randeffs, approx::FOCEI)
-  cwresi(model, subject, param, randeffs)
+function wresiduals(model::PumasModel, subject::Subject, param::NamedTuple, randeffs, approx::FOCEI, args...; kwargs...)
+  cwresi(model, subject, param, randeffs, args...; kwargs...)
 end
-function iwresiduals(model, subject, param, randeffs, approx::FO)
-  iwres(model, subject, param, randeffs)
+function iwresiduals(model::PumasModel, subject::Subject, param::NamedTuple, randeffs, approx::FO, args...; kwargs...)
+  iwres(model, subject, param, randeffs, args...; kwargs...)
 end
-function iwresiduals(model, subject, param, randeffs, approx::FOCE)
-  icwres(model, subject, param, randeffs)
+function iwresiduals(model::PumasModel, subject::Subject, param::NamedTuple, randeffs, approx::FOCE, args...; kwargs...)
+  icwres(model, subject, param, randeffs, args...; kwargs...)
 end
-function iwresiduals(model, subject, param, randeffs, approx::FOCEI)
-  icwresi(model, subject, param, randeffs)
+function iwresiduals(model::PumasModel, subject::Subject, param::NamedTuple, randeffs, approx::FOCEI, args...; kwargs...)
+  icwresi(model, subject, param, randeffs, args...; kwargs...)
 end
 
 """
@@ -109,7 +109,13 @@ To calculate the Weighted Residuals (WRES).
 function wres(m::PumasModel,
               subject::Subject,
               param::NamedTuple,
-              vrandeffsorth::AbstractVector=_orth_empirical_bayes(m, subject, param, FO()))
+              vrandeffsorth::Union{Nothing, AbstractVector}=nothing,
+              args...;
+              kwargs...)
+
+  if vrandeffsorth isa Nothing
+    vrandeffsorth::AbstractVector=_orth_empirical_bayes(m, subject, param, FO(), args...; kwargs...)
+  end
 
   randeffstransform = totransform(m.random(param))
   randeffs = TransformVariables.transform(randeffstransform, vrandeffsorth)
@@ -133,7 +139,13 @@ To calculate the Conditional Weighted Residuals (CWRES).
 function cwres(m::PumasModel,
                subject::Subject,
                param::NamedTuple,
-               vrandeffsorth::AbstractVector=_orth_empirical_bayes(m, subject, param, FOCE()))
+               vrandeffsorth::Union{Nothing, AbstractVector}=nothing,
+               args...;
+               kwargs...)
+
+  if vrandeffsorth isa Nothing
+    vrandeffsorth = _orth_empirical_bayes(m, subject, param, FOCE(), args...; kwargs...)
+  end
 
   randeffstransform = totransform(m.random(param))
   randeffs0   = TransformVariables.transform(randeffstransform, zero(vrandeffsorth))
@@ -161,7 +173,13 @@ To calculate the Conditional Weighted Residuals with Interaction (CWRESI).
 function cwresi(m::PumasModel,
                 subject::Subject,
                 param::NamedTuple,
-                vrandeffsorth::AbstractVector=_orth_empirical_bayes(m, subject, param, FOCEI()))
+                vrandeffsorth::Union{Nothing, AbstractVector}=nothing,
+                args...;
+                kwargs...)
+
+  if vrandeffsorth isa Nothing
+    vrandeffsorth = _orth_empirical_bayes(m, subject, param, FOCEI(), args...; kwargs...)
+  end
 
   randeffstransform = totransform(m.random(param))
   randeffs = TransformVariables.transform(randeffstransform, vrandeffsorth)
@@ -185,7 +203,13 @@ To calculate the Population Predictions (PRED).
 function pred(m::PumasModel,
               subject::Subject,
               param::NamedTuple,
-              vrandeffsorth::AbstractVector=_orth_empirical_bayes(m, subject, param, FO()))
+              vrandeffsorth::Union{Nothing, AbstractVector}=nothing,
+              args...;
+              kwargs...)
+
+  if vrandeffsorth isa Nothing
+    vrandeffsorth = _orth_empirical_bayes(m, subject, param, FO(), args...; kwargs...)
+  end
 
   randeffs = TransformVariables.transform(totransform(m.random(param)), vrandeffsorth)
   dist = derived_dist(m, subject, param, randeffs)
@@ -201,7 +225,13 @@ To calculate the Conditional Population Predictions (CPRED).
 function cpred(m::PumasModel,
                subject::Subject,
                param::NamedTuple,
-               vrandeffsorth::AbstractVector=_orth_empirical_bayes(m, subject, param, FOCE()))
+               vrandeffsorth::Union{Nothing, AbstractVector}=nothing,
+               args...;
+               kwargs...)
+
+   if vrandeffsorth isa Nothing
+     vrandeffsorth = _orth_empirical_bayes(m, subject, param, FOCE(), args...; kwargs...)
+   end
 
   randeffstransform = totransform(m.random(param))
   randeffs = TransformVariables.transform(randeffstransform, vrandeffsorth)
@@ -224,7 +254,13 @@ To calculate the Conditional Population Predictions with Interaction (CPREDI).
 function cpredi(m::PumasModel,
                 subject::Subject,
                 param::NamedTuple,
-                vrandeffsorth::AbstractVector=_orth_empirical_bayes(m, subject, param, FOCEI()))
+                vrandeffsorth::Union{Nothing, AbstractVector}=nothing,
+                args...;
+                kwargs...)
+
+  if vrandeffsorth isa Nothing
+    vrandeffsorth = _orth_empirical_bayes(m, subject, param, FOCEI(), args...; kwargs...)
+  end
 
   randeffstransform = totransform(m.random(param))
   randeffs = TransformVariables.transform(randeffstransform, vrandeffsorth)
@@ -261,7 +297,13 @@ To calculate the Individual Weighted Residuals (IWRES).
 function iwres(m::PumasModel,
                subject::Subject,
                param::NamedTuple,
-               vrandeffsorth::AbstractVector=_orth_empirical_bayes(m, subject, param, FO()))
+               vrandeffsorth::Union{Nothing, AbstractVector}=nothing,
+               args...;
+               kwargs...)
+
+   if vrandeffsorth isa Nothing
+     vrandeffsorth = _orth_empirical_bayes(m, subject, param, FO(), args...; kwargs...)
+   end
 
   randeffs = TransformVariables.transform(totransform(m.random(param)), vrandeffsorth)
   dist = derived_dist(m, subject, param, randeffs)
@@ -276,7 +318,13 @@ To calculate the Individual Conditional Weighted Residuals (ICWRES).
 function icwres(m::PumasModel,
                 subject::Subject,
                 param::NamedTuple,
-                vrandeffsorth::AbstractVector=_orth_empirical_bayes(m, subject, param, FOCE()))
+                vrandeffsorth::Union{Nothing, AbstractVector}=nothing,
+                args...;
+                kwargs...)
+
+  if vrandeffsorth isa Nothing
+    vrandeffsorth = _orth_empirical_bayes(m, subject, param, FOCE(), args...; kwargs...)
+  end
 
   randeffstransform = totransform(m.random(param))
   randeffs0   = TransformVariables.transform(randeffstransform, zero(vrandeffsorth))
@@ -294,7 +342,13 @@ To calculate the Individual Conditional Weighted Residuals with Interaction (ICW
 function icwresi(m::PumasModel,
                  subject::Subject,
                  param::NamedTuple,
-                 vrandeffsorth::AbstractVector=_orth_empirical_bayes(m, subject, param, FOCEI()))
+                 vrandeffsorth::Union{Nothing, AbstractVector}=nothing,
+                 args...;
+                 kwargs...)
+
+  if vrandeffsorth isa Nothing
+    vrandeffsorth = _orth_empirical_bayes(m, subject, param, FOCEI(), args...; kwargs...)
+  end
 
   randeffs = TransformVariables.transform(totransform(m.random(param)), vrandeffsorth)
   dist = derived_dist(m, subject, param, randeffs)
@@ -309,12 +363,14 @@ To calculate the Expected Simulation based Individual Weighted Residuals (EIWRES
 function eiwres(m::PumasModel,
                 subject::Subject,
                 param::NamedTuple,
-                nsim::Integer)
+                nsim::Integer,
+                args...;
+                kwargs...)
   yi = subject.observations.dv
-  dist = derived_dist(m, subject, param, sample_randeffs(m, param))
+  dist = derived_dist(m, subject, param, sample_randeffs(m, param), args...; kwargs...)
   sims_sum = (yi .- mean.(dist.dv))./std.(dist.dv)
   for i in 2:nsim
-    dist = derived_dist(m, subject, param, sample_randeffs(m, param))
+    dist = derived_dist(m, subject, param, sample_randeffs(m, param), args...; kwargs...)
     sims_sum .+= (yi .- mean.(dist.dv))./std.(dist.dv)
   end
   return sims_sum ./ nsim
@@ -323,39 +379,59 @@ end
 function ipred(m::PumasModel,
                 subject::Subject,
                 param::NamedTuple,
-                vrandeffsorth::AbstractVector=_orth_empirical_bayes(m, subject, param, FO()))
+                vrandeffsorth::Union{Nothing, AbstractVector}=nothing,
+                args...;
+                kwargs...)
+
+  if vrandeffsorth isa Nothing
+    vrandeffsorth = _orth_empirical_bayes(m, subject, param, FO(), args...; kwargs...)
+  end
 
   randeffs = TransformVariables.transform(totransform(m.random(param)), vrandeffsorth)
-  dist = derived_dist(m, subject, param, randeffs)
+  dist = derived_dist(m, subject, param, randeffs, args...; kwargs...)
   return mean.(dist.dv)
 end
 
 function cipred(m::PumasModel,
                 subject::Subject,
                 param::NamedTuple,
-                vrandeffsorth::AbstractVector=_orth_empirical_bayes(m, subject, param, FOCE()))
+                vrandeffsorth::Union{Nothing, AbstractVector}=nothing,
+                args...;
+                kwargs...)
+
+  if vrandeffsorth isa Nothing
+    vrandeffsorth = _orth_empirical_bayes(m, subject, param, FOCE(), args...; kwargs...)
+  end
 
   randeffs = TransformVariables.transform(totransform(m.random(param)), vrandeffsorth)
-  dist = derived_dist(m, subject, param, randeffs)
+  dist = derived_dist(m, subject, param, randeffs, args...; kwargs...)
   return mean.(dist.dv)
 end
 
 function cipredi(m::PumasModel,
                   subject::Subject,
                   param::NamedTuple,
-                  vrandeffsorth::AbstractVector=_orth_empirical_bayes(m, subject, param, FOCEI()))
+                  vrandeffsorth::Union{Nothing, AbstractVector}=nothing,
+                  args...;
+                  kwargs...)
+
+  if vrandeffsorth isa Nothing
+    vrandeffsorth = _orth_empirical_bayes(m, subject, param, FOCEI(), args...; kwargs...)
+  end
 
   randeffs = TransformVariables.transform(totransform(m.random(param)), vrandeffsorth)
-  dist = derived_dist(m, subject, param, randeffs)
+  dist = derived_dist(m, subject, param, randeffs, args...; kwargs...)
   return mean.(dist.dv)
 end
 
 function ηshrinkage(m::PumasModel,
                     data::Population,
                     param::NamedTuple,
-                    approx::LikelihoodApproximation)
+                    approx::LikelihoodApproximation,
+                    args...;
+                    kwargs...)
 
-  vvrandeffsorth = [Pumas._orth_empirical_bayes(m, subject, param, approx) for subject in data]
+  vvrandeffsorth = [Pumas._orth_empirical_bayes(m, subject, param, approx, args...; kwargs...) for subject in data]
   vtrandeffs = [TransformVariables.transform(totransform(m.random(param)), _vrandefforth) for _vrandefforth in vvrandeffsorth]
 
   randeffsstd = map(keys(first(vtrandeffs))) do k
@@ -370,7 +446,14 @@ function ϵshrinkage(m::PumasModel,
                     data::Population,
                     param::NamedTuple,
                     approx::FOCEI,
-                    vvrandeffsorth=[_orth_empirical_bayes(m, subject, param, FOCEI()) for subject in data])
+                    vvrandeffsorth::Union{Nothing, AbstractVector}=nothing,
+                    args...;
+                    kwargs...)
+
+  if vvrandeffsorth isa Nothing
+    vvrandeffsorth = [_orth_empirical_bayes(m, subject, param, FOCEI(), args...; kwargs...) for subject in data]
+  end
+
   1 - std(vec(VectorOfArray([icwresi(m, subject, param, vvrandeffsorth) for (subject, vvrandeffsorth) in zip(data, vvrandeffsorth)])), corrected = false)
 end
 
@@ -378,24 +461,35 @@ function ϵshrinkage(m::PumasModel,
                     data::Population,
                     param::NamedTuple,
                     approx::FOCE,
-                    vvrandeffsorth=[_orth_empirical_bayes(m, subject, param, FOCE()) for subject in data])
+                    vvrandeffsorth::Union{Nothing, AbstractVector}=nothing,
+                    args...;
+                    kwargs...)
+
+  if vvrandeffsorth isa Nothing
+    vvrandeffsorth = [_orth_empirical_bayes(m, subject, param, FOCE(), args...; kwargs...) for subject in data]
+  end
+
   1 - std(vec(VectorOfArray([icwres(m, subject, param, vvrandeffsorth) for (subject, vvrandeffsorth) in zip(data, vvrandeffsorth)])), corrected = false)
 end
 
 function StatsBase.aic(m::PumasModel,
                        data::Population,
                        param::NamedTuple,
-                       approx::LikelihoodApproximation)
+                       approx::LikelihoodApproximation,
+                       args...;
+                       kwargs...)
   numparam = TransformVariables.dimension(totransform(m.param))
-  2*(marginal_nll(m, data, param, approx) + numparam)
+  2*(marginal_nll(m, data, param, approx, args...; kwargs...) + numparam)
 end
 
 function StatsBase.bic(m::PumasModel,
                        data::Population,
                        param::NamedTuple,
-                       approx::LikelihoodApproximation)
+                       approx::LikelihoodApproximation,
+                       args...;
+                       kwargs...)
   numparam = TransformVariables.dimension(totransform(m.param))
-  2*marginal_nll(m, data, param, approx) + numparam*log(sum(t -> length(t.time), data))
+  2*marginal_nll(m, data, param, approx, args...; kwargs...) + numparam*log(sum(t -> length(t.time), data))
 end
 
 ### Predictions
@@ -644,7 +738,7 @@ end
 end
 
 # This will use default args and kwargs!!
-findinfluential(fpm::FittedPumasModel) = findinfluential(fpm.model, fpm.data, fpm.param, fpm.approx)
+findinfluential(fpm::FittedPumasModel) = findinfluential(fpm.model, fpm.data, fpm.param, fpm.approx, fpm.args...; fpm.kwargs...)
 function findinfluential(m::PumasModel,
                          data::Population,
                          param::NamedTuple,

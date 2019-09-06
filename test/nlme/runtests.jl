@@ -1,6 +1,10 @@
 using Test, SafeTestsets
 using Pumas, LinearAlgebra, Optim, StatsBase
 
+if group == "All" || group == "NLMNE_Basic"
+  @time @safetestset "Types (constructors, api, etc...)"             begin include("types.jl")                  end
+end
+
 if group == "All" || group == "NLME_ML1"
   @time @safetestset "Maximum-likelihood models 1" begin
     @time @safetestset "Simple Model"                                begin include("simple_model.jl")              end
