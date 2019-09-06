@@ -152,7 +152,6 @@ end
   if dist isa Nothing
     return collated_numtype(Inf)
   end
-
   ll = _lpdf(dist, subject.observations)::collated_numtype
   return -ll
 end
@@ -175,7 +174,8 @@ function conditional_nll(m::PumasModel,
   l = conditional_nll(m, subject, param, randeffs, dist)
 
   # If (negative) likehood is infinity or the model is Homoscedastic, we just return l
-  if isinf(l) || _is_homoscedastic(dist.dv)
+  _names = keys(subject.observations) # FIXME-DV
+  if isinf(l) || _is_homoscedastic(getfield(dist, first(_names)))
     return l
   else # compute the adjusted (negative) likelihood where the variance is evaluated at η=0
     dist0 = derived_dist(m, subject, param, map(zero, randeffs), args...; kwargs...)
@@ -295,7 +295,7 @@ function _orth_empirical_bayes!(
   fdtype=Val{:central}(),
   fdrelstep=_fdrelstep(m, param, reltol, fdtype),
   kwargs...)
-  
+
   randeffstransform = totransform(m.random(param))
   cost = vηorth -> penalized_conditional_nll(
     m,
@@ -803,7 +803,9 @@ function ∂²l∂η²(m::PumasModel,
     return ForwardDiff.value(nl_d)::promote_type(numtype(param), numtype(vrandeffsorth)), nothing, nothing
   end
 
-  return _∂²l∂η²(nl_d, dist_d.dv, m, subject, param, vrandeffsorth, approx, args...; kwargs...)
+  # We need to think about this, but I assume this should just be a sum over dv's
+  _names = keys(subject.observations) # FIXME-DV
+  return _∂²l∂η²(nl_d, dist_d[first(_names)], m, subject, param, vrandeffsorth, approx, args...; kwargs...)
 end
 
 function _∂²l∂η²(nl_d::ForwardDiff.Dual,
@@ -814,8 +816,10 @@ function _∂²l∂η²(nl_d::ForwardDiff.Dual,
                  vrandeffsorth::AbstractVector,
                  ::FO,
                  args...; kwargs...)
-
-  return (ForwardDiff.value(nl_d)::promote_type(numtype(param), numtype(vrandeffsorth)), _∂²l∂η²(subject.observations.dv, dv_d, FO())...)
+  # FIXME-DV
+  # Maybe just accept the dv directly here
+  _names = keys(subject.observations)
+  return (ForwardDiff.value(nl_d)::promote_type(numtype(param), numtype(vrandeffsorth)), _∂²l∂η²(subject.observations[first(_names)], dv_d, FO())...)
 end
 
 function _∂²l∂η²(obsdv::AbstractVector, dv::AbstractVector{<:Normal}, ::FO)

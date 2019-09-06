@@ -11,8 +11,9 @@ function _print_fit_header(io, fpm)
                      lpad(round(Optim.minimum(fpm.optim); sigdigits=round(Int, -log10(DEFAULT_ESTIMATION_RELTOL))), 19)))
   println(io, string("Total number of observation records:",
                      lpad(sum([length(sub.time) for sub in fpm.data]), 8)))
+  # FIXME-DV make sure that this works for multiple dv's (I think it should ) ~ pkm
   println(io, string("Number of active observation records:",
-                     lpad(sum(subject -> count(!ismissing, subject.observations.dv), fpm.data),7)))
+                     lpad(sum(subject -> sum(count.(!ismissing, values(subject.observations))), fpm.data),7)))
   println(io, string("Number of subjects:",
                      lpad(length(fpm.data), 25)))
   println(io)

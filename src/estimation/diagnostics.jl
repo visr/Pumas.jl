@@ -12,7 +12,9 @@ function StatsBase.residuals(model::PumasModel, subject::Subject, param::NamedTu
 end
 function StatsBase.residuals(subject::Subject, dist)
   # Return the residuals
-  return subject.observations.dv .- mean.(dist.dv)
+  # FIXME-DV return multiple
+  dv_names = keys(subject.observations)
+  return first(subject.observations) .- mean.(dist[first(dv_names)])
 end
 """
   npde(model, subject, param, randeffs, simulations_count)
@@ -113,6 +115,7 @@ function wres(m::PumasModel,
               args...;
               kwargs...)
 
+  dv_names = keys(subject.observations)
   if vrandeffsorth isa Nothing
     vrandeffsorth::AbstractVector=_orth_empirical_bayes(m, subject, param, FO(), args...; kwargs...)
   end
@@ -123,11 +126,12 @@ function wres(m::PumasModel,
   F = ForwardDiff.jacobian(
     _vrandeffs -> begin
       _randeffs = TransformVariables.transform(randeffstransform, _vrandeffs)
-      return mean.(derived_dist(m, subject, param, _randeffs).dv)
+      # FIXME-DV for multiple
+      return mean.(getfield(derived_dist(m, subject, param, _randeffs), first(dv_names))) # FIXME-DV
     end,
     vrandeffsorth
   )
-  V = Symmetric(F*F' + Diagonal(var.(dist.dv)))
+  V = Symmetric(F*F' + Diagonal(var.(getfield(dist, first(dv_names))))) # FIXME-DV
   return cholesky(V).U'\residuals(subject, dist)
 end
 
@@ -300,14 +304,14 @@ function iwres(m::PumasModel,
                vrandeffsorth::Union{Nothing, AbstractVector}=nothing,
                args...;
                kwargs...)
-
+   dv_names = keys(subject.observations)
    if vrandeffsorth isa Nothing
      vrandeffsorth = _orth_empirical_bayes(m, subject, param, FO(), args...; kwargs...)
    end
 
   randeffs = TransformVariables.transform(totransform(m.random(param)), vrandeffsorth)
   dist = derived_dist(m, subject, param, randeffs)
-  return residuals(subject, dist) ./ std.(dist.dv)
+  return residuals(subject, dist) ./ std.(getfield(dist, first(dv_names))) # FIXME-DV
 end
 
 """
@@ -345,14 +349,14 @@ function icwresi(m::PumasModel,
                  vrandeffsorth::Union{Nothing, AbstractVector}=nothing,
                  args...;
                  kwargs...)
-
+  dv_names = keys(subject.observations)
   if vrandeffsorth isa Nothing
     vrandeffsorth = _orth_empirical_bayes(m, subject, param, FOCEI(), args...; kwargs...)
   end
 
   randeffs = TransformVariables.transform(totransform(m.random(param)), vrandeffsorth)
   dist = derived_dist(m, subject, param, randeffs)
-  return residuals(subject, dist) ./ std.(dist.dv)
+  return residuals(subject, dist) ./ std.(getfield(dist, first(dv_names))) #FIXME-DV
 end
 
 """
@@ -366,12 +370,15 @@ function eiwres(m::PumasModel,
                 nsim::Integer,
                 args...;
                 kwargs...)
-  yi = subject.observations.dv
+  dv_names = keys(subject.observations)
+  yi = getfield(subject.observations, first(dv_names)) #FIXME-DV
   dist = derived_dist(m, subject, param, sample_randeffs(m, param), args...; kwargs...)
-  sims_sum = (yi .- mean.(dist.dv))./std.(dist.dv)
+  dist_dv = getfield(dist, first(dv_names))
+  sims_sum = (yi .- mean.(dist_dv))./std.(dist_dv)
   for i in 2:nsim
     dist = derived_dist(m, subject, param, sample_randeffs(m, param), args...; kwargs...)
-    sims_sum .+= (yi .- mean.(dist.dv))./std.(dist.dv)
+    dist_dv = getfield(dist, first(dv_names))
+    sims_sum .+= (yi .- mean.(dist_dv))./std.(dist_dv)
   end
   return sims_sum ./ nsim
 end
@@ -382,14 +389,14 @@ function ipred(m::PumasModel,
                 vrandeffsorth::Union{Nothing, AbstractVector}=nothing,
                 args...;
                 kwargs...)
-
+  dv_names = keys(subject.observations)
   if vrandeffsorth isa Nothing
     vrandeffsorth = _orth_empirical_bayes(m, subject, param, FO(), args...; kwargs...)
   end
 
   randeffs = TransformVariables.transform(totransform(m.random(param)), vrandeffsorth)
   dist = derived_dist(m, subject, param, randeffs, args...; kwargs...)
-  return mean.(dist.dv)
+  return mean.(getfield(dist, first(dv_names)))
 end
 
 function cipred(m::PumasModel,
@@ -398,14 +405,14 @@ function cipred(m::PumasModel,
                 vrandeffsorth::Union{Nothing, AbstractVector}=nothing,
                 args...;
                 kwargs...)
-
+  dv_names = keys(subject.observations)
   if vrandeffsorth isa Nothing
     vrandeffsorth = _orth_empirical_bayes(m, subject, param, FOCE(), args...; kwargs...)
   end
 
   randeffs = TransformVariables.transform(totransform(m.random(param)), vrandeffsorth)
   dist = derived_dist(m, subject, param, randeffs, args...; kwargs...)
-  return mean.(dist.dv)
+  return mean.(dist[first(dv_names)])
 end
 
 function cipredi(m::PumasModel,
