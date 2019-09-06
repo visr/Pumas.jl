@@ -2,24 +2,6 @@
 #                           Useful utility functions                           #
 ################################################################################
 
-# heuristic to determine if a vector is categorical or not
-"""
-    iscategorical(arr)
-Returns whether that array can be considered categorical or not, according to
-the following heuristic:
-
-- A CategoricalArray is always categorical.
-- A `Vector` of `Strings` or `Symbols` is always categorical.
-- A `Vector` of integers, with no. of unique entries ≤ 6, is always categorical.
-- A `Vector` of `Numbers` is never categorical, it is always continuous.
-"""
-iscategorical(::CategoricalArray) = true
-iscategorical(::AbstractVector{<: AbstractString}) = true
-iscategorical(::AbstractVector{<: Symbol}) = true
-iscategorical(::AbstractVector{<: Number}) = false
-iscategorical(::AbstractVector{Union{Missing, T}}) where T = false
-# iscategorical(v::AbstractVector{<: Int}) = length(unique(v)) <= 6 # TODO is this heuristic OK?
-
 ################################################################################
 #                                Basic recipes                                 #
 ################################################################################
@@ -120,5 +102,5 @@ parameters to be plotted.
         end
     end
 
-    primary := false # do not add a legend entry here, do other nice things that Plots does as well
+    primary := false # do not add a legend entry here, do other nice things
 end
