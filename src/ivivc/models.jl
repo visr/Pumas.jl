@@ -3,6 +3,7 @@
 # Emax model
 # p = [D_INF, γ, TD50, time_lag(optional)]
 function emax(t::Number, p)
+  if(t < 0) return zero(t) end
   if length(p) == 4
     t = t - p[4]
     t = t <= zero(t) ? zero(t) : t
@@ -23,6 +24,7 @@ end
 # Weibull Model
 # p = [D_INF, Mean_dissolution_time, γ, time_lag(optional)]
 function weibull(t::Number, p)
+  if(t < 0) return zero(t) end
   if length(p) == 4
     t = t - p[4]
     t = t <= zero(t) ? zero(t) : t
@@ -71,3 +73,11 @@ function bateman(t::Number, p)
 end
 
 bateman(t::AbstractVector, p) = bateman.(t, Ref(p))
+
+# Derivatives of Vitro models
+
+#Emax model
+e_der(t, p_n) = (t < 0.0) ? 0.0 : @. p_n[1] * p_n[2] * (p_n[3]^p_n[2]) * (t^(p_n[2]-1)) / ((p_n[3]^p_n[2] + t^p_n[2])^2)
+
+# Weibull model
+w_der(t, p_n) = (t < 0.0) ? 0.0 : @. p_n[1] * (p_n[3]/(p_n[2]^p_n[3])) * (t^(p_n[3]-1)) * exp(-((t/p_n[2])^p_n[3]))
