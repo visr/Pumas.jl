@@ -97,6 +97,12 @@ end
                          # Elapsed covariance time in seconds:     0.02
 
   o = fit(theopmodel_analytical_fo, theopp, param, Pumas.FO())
+  
+  ofix1 = fit(theopmodel_analytical_fo, theopp, param, Pumas.FO(); fixedparam=(θ₁=0.4))
+  ofix2 = fit(theopmodel_analytical_fo, theopp, param, Pumas.FO(); fixedparam=(σ_add=0.1))
+
+  @test ofix1.param.θ₁ == 0.4
+  @test ofix2.param.σ_add == 0.1
 
   o_estimates = o.param
   o_stderror  = stderror(o)
