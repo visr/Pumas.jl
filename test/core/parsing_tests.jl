@@ -1,7 +1,7 @@
 using Pumas, Test, CSV
 
 @testset "nmtran" begin
-  data = read_pumas(example_nmtran_data("event_data/data1"))
+  data = read_pumas(example_data("event_data/data1"))
   @test_nowarn show(data)
 
   @test getproperty.(data[1].events, :time) == 0:12:36
@@ -28,7 +28,7 @@ using Pumas, Test, CSV
   end
 end
 @testset "Time Variant Covariates" begin
-  data = read_pumas(example_nmtran_data("time_varying_covariates"), cvs = [:weight, :dih])
+  data = read_pumas(example_data("time_varying_covariates"), cvs = [:weight, :dih])
   @test data[1].covariates.weight |> (x -> isa(x, AbstractVector{Int}) && length(x) == 7)
   @test data[1].covariates.dih == 2
 end
@@ -87,8 +87,16 @@ end
   data = DataFrame(evs, true)
   @test size(data, 1) == 24
 end
+
 @testset "MDV" begin
   data = DataFrame(amt = 10, dv = 0, evid = 0, mdv = 1)
   output = read_pumas(data)
   @test ismissing(output[1].observations.dv[1])
+end
+
+@testset "amt = rate * duration" begin
+  e1 = DosageRegimen(100, rate = 25)
+  e2 = DosageRegimen(100, duration = 4)
+  @test e1.data == e2.data
+  @test_throws AssertionError DosageRegimen(100, duration = 4, rate = 20)
 end

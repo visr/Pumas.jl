@@ -3,9 +3,10 @@ module Pumas
 using DiffEqDiffTools, Reexport, StatsBase,
       StaticArrays, Distributed, LabelledArrays, GLM,
       TreeViews, CSV, ForwardDiff, DiffResults, Optim, PDMats,
-      Missings, RecipesBase, StructArrays, RecursiveArrayTools, HCubature
-using  AdvancedHMC, MCMCChains
-using DiffEqSensitivity
+      Missings, RecipesBase, StructArrays, RecursiveArrayTools, HCubature,
+      Statistics, DiffEqSensitivity
+using AdvancedHMC: DiagEuclideanMetric, Hamiltonian, NUTS, Leapfrog, find_good_eps, StanHMCAdaptor, Preconditioner, NesterovDualAveraging
+using MCMCChains: Chains
 
 import DataInterpolations, Loess
 
@@ -48,20 +49,22 @@ include("plotting/plotting.jl")
 
 @reexport using .NCA
 
-example_nmtran_data(filename) = joinpath(joinpath(@__DIR__, ".."),"examples/"*filename*".csv")
+example_data(filename) = joinpath(joinpath(@__DIR__, ".."),"examples/"*filename*".csv")
 
 export Subject, Population, DosageRegimen
 export PumasModel, init_param, init_randeffs, sample_randeffs
 export simobs, pre
 export tad, eventnum
 export conditional_nll
-export predict, wresiduals, empirical_bayes
+export predict, residuals, wresiduals, empirical_bayes
 export ηshrinkage, ϵshrinkage
-export read_pumas, example_nmtran_data
+export read_pumas, example_data
 export @model, @nca, @tvcov
 # From StatsBase
 export fit, stderror, vcov, aic, bic, deviance, informationmatrix
 export infer, inspect
 export vpc, vpc_obs
 export gsa
+export mean, std, var
+
 end # module

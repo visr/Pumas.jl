@@ -1,4 +1,4 @@
-using Pumas, SafeTestsets
+using Pumas, SafeTestsets, Test
 
 if haskey(ENV,"GROUP")
     group = ENV["GROUP"]
