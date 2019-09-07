@@ -8,7 +8,7 @@ using DiffEqDiffTools, Reexport, StatsBase,
 using AdvancedHMC: DiagEuclideanMetric, Hamiltonian, NUTS, Leapfrog, find_good_eps, StanHMCAdaptor, Preconditioner, NesterovDualAveraging
 using MCMCChains: Chains
 
-import DataInterpolations, Loess
+import DataInterpolations
 
 @reexport using OrdinaryDiffEq, Unitful
 @reexport using Distributions, DataFrames
@@ -64,4 +64,5 @@ export fit, stderror, vcov, aic, bic, deviance, informationmatrix
 export infer, inspect
 export vpc, vpc_obs
 export mean, std, var
+
 end # module
