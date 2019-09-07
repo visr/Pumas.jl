@@ -561,12 +561,12 @@ this is scaled and shifted slightly from [`marginal_nll`](@ref).
 StatsBase.deviance(m::PumasModel,
                    subject::Subject,
                    args...; kwargs...) =
-    2marginal_nll(m, subject, args...; kwargs...) - length(first(subject.observations))*log(2π)
+    2marginal_nll(m, subject, args...; kwargs...) - count(!ismissing, first(subject.observations))*log(2π)
 
 StatsBase.deviance(m::PumasModel,
                    data::Population,
                    args...; kwargs...) =
-    2marginal_nll(m, data, args...; kwargs...) - sum(subject->length(first(subject.observations)), data)*log(2π)
+    2marginal_nll(m, data, args...; kwargs...) - sum(subject->count(!ismissing, first(subject.observations)), data)*log(2π)
 # NONMEM doesn't allow ragged, so this suffices for testing
 
 # Compute the gradient of marginal_nll without solving inner optimization
@@ -764,7 +764,7 @@ function marginal_nll_gradient!(g::AbstractVector,
   return g
 end
 
-function _conditional_nll_ext_vηorth_gradient(
+function _derived_vηorth_gradient(
   m::PumasModel,
   subject::Subject,
   param::NamedTuple,
@@ -773,19 +773,16 @@ function _conditional_nll_ext_vηorth_gradient(
   # Costruct closure for calling conditional_nll_ext as a function
   # of a random effects vector. This makes it possible for ForwardDiff's
   # tagging system to work properly
-  _conditional_nll_ext =  vηorth -> begin
+  __derived =  vηorth -> begin
     randeffs = TransformVariables.transform(totransform(m.random(param)), vηorth)
-    dist = derived_dist(m, subject, param, randeffs, args...; kwargs...)
-    cnll = conditional_nll(m, subject, param, randeffs, dist)
-    return cnll, dist
+    return derived_dist(m, subject, param, randeffs, args...; kwargs...)
   end
   # Construct vector of dual numbers for the random effects to track the partial derivatives
-  cfg = ForwardDiff.JacobianConfig(_conditional_nll_ext, vrandeffsorth)
+  cfg = ForwardDiff.JacobianConfig(__derived, vrandeffsorth)
 
   ForwardDiff.seed!(cfg.duals, vrandeffsorth, cfg.seeds)
-  cnll, dist = _conditional_nll_ext(cfg.duals)
 
-  return cnll, dist
+  return __derived(cfg.duals)
 end
 
 function ∂²l∂η²(m::PumasModel,
@@ -797,17 +794,15 @@ function ∂²l∂η²(m::PumasModel,
 
   # Compute the conditional likelihood and the conditional distributions of the dependent variable
   # per observation while tracking partial derivatives of the random effects
-  nl_d, dist_d = _conditional_nll_ext_vηorth_gradient(m, subject, param, vrandeffsorth, args...; kwargs...)
-
-  if !isfinite(nl_d)
-    return ForwardDiff.value(nl_d)::promote_type(numtype(param), numtype(vrandeffsorth)), nothing, nothing
+  dist_d = _derived_vηorth_gradient(m, subject, param, vrandeffsorth, args...; kwargs...)
+  if dist_d === nothing
+    return Inf, nothing, nothing
   end
 
-  return _∂²l∂η²(nl_d, dist_d.dv, m, subject, param, vrandeffsorth, approx, args...; kwargs...)
+  return _∂²l∂η²(dist_d.dv, m, subject, param, vrandeffsorth, approx, args...; kwargs...)
 end
 
-function _∂²l∂η²(nl_d::ForwardDiff.Dual,
-                 dv_d::AbstractVector{<:Union{Normal,LogNormal}},
+function _∂²l∂η²(dv_d::AbstractVector{<:Union{Normal,LogNormal}},
                  m::PumasModel,
                  subject::Subject,
                  param::NamedTuple,
@@ -815,7 +810,7 @@ function _∂²l∂η²(nl_d::ForwardDiff.Dual,
                  ::FO,
                  args...; kwargs...)
 
-  return (ForwardDiff.value(nl_d)::promote_type(numtype(param), numtype(vrandeffsorth)), _∂²l∂η²(subject.observations.dv, dv_d, FO())...)
+  return _∂²l∂η²(subject.observations.dv, dv_d, FO())
 end
 
 function _∂²l∂η²(obsdv::AbstractVector, dv::AbstractVector{<:Normal}, ::FO)
@@ -826,6 +821,7 @@ function _∂²l∂η²(obsdv::AbstractVector, dv::AbstractVector{<:Normal}, ::F
   ## FIXME! Careful about hardcoding for Float64 here
   H    = @SMatrix zeros(nrfx, nrfx)
   dldη = @SVector zeros(nrfx)
+  nl   = 0.0
 
   # Loop through the distribution vector and extract derivative information
   for j in eachindex(dv)
@@ -843,9 +839,10 @@ function _∂²l∂η²(obsdv::AbstractVector, dv::AbstractVector{<:Normal}, ::F
 
     H    += fdr*f'
     dldη += fdr*(obsdvj - ForwardDiff.value(dvj.μ))
+    nl   -= ForwardDiff.value(_lpdf(dvj, obsdvj))
   end
 
-  return dldη, H
+  return nl, dldη, H
 end
 
 function _∂²l∂η²(obsdv::AbstractVector, dv::AbstractVector{<:LogNormal}, ::FO)
@@ -856,6 +853,7 @@ function _∂²l∂η²(obsdv::AbstractVector, dv::AbstractVector{<:LogNormal}, 
   ## FIXME! Careful about hardcoding for Float64 here
   H    = @SMatrix zeros(nrfx, nrfx)
   dldη = @SVector zeros(nrfx)
+  nl   = 0.0
 
   # Loop through the distribution vector and extract derivative information
   for j in eachindex(dv)
@@ -866,14 +864,17 @@ function _∂²l∂η²(obsdv::AbstractVector, dv::AbstractVector{<:LogNormal}, 
       continue
     end
 
-    r = ForwardDiff.value(dv[j].σ)^2
-    f = SVector(ForwardDiff.partials(dv[j].μ).values)
+    dvj = dv[j]
+    r = ForwardDiff.value(dvj.σ)^2
+    f = SVector(ForwardDiff.partials(dvj.μ).values)
     fdr = f/r
-    H += fdr*f'
-    dldη += fdr*(log(obsdvj) - ForwardDiff.value(dv[j].μ))
+
+    H    += fdr*f'
+    dldη += fdr*(log(obsdvj) - ForwardDiff.value(dvj.μ))
+    nl   -= ForwardDiff.value(_lpdf(dvj, obsdvj))
   end
 
-  return dldη, H
+  return nl, dldη, H
 end
 
 # Helper function to detect homoscedasticity. For now, it is assumed the input dv vecotr containing
@@ -886,8 +887,7 @@ end
 _is_homoscedastic(::Any) = throw(ArgumentError("Distribution not supported"))
 
 # FIXME! Don't hardcode for dv
-function _∂²l∂η²(nl_d::ForwardDiff.Dual,
-                 dv_d::AbstractVector{<:Union{Normal,LogNormal}},
+function _∂²l∂η²(dv_d::AbstractVector{<:Union{Normal,LogNormal}},
                  m::PumasModel,
                  subject::Subject,
                  param::NamedTuple,
@@ -898,9 +898,7 @@ function _∂²l∂η²(nl_d::ForwardDiff.Dual,
   # Compute the conditional likelihood and the conditional distributions of the dependent variable per observation for η=0
   # If the model is homoscedastic, it is not necessary to recompute the variances at η=0
   if _is_homoscedastic(dv_d)
-    nl = ForwardDiff.value(nl_d)
-
-    W = _∂²l∂η²(dv_d, first(dv_d), FOCE())
+    return _∂²l∂η²(subject.observations.dv, dv_d, first(dv_d), FOCE())
   else # in the Heteroscedastic case, compute the variances at η=0
     randeffstransform = totransform(m.random(param))
     dist_0 = derived_dist(
@@ -912,63 +910,101 @@ function _∂²l∂η²(nl_d::ForwardDiff.Dual,
       kwargs...
       )
 
-    # Extract the value of the conditional likelihood
-    nl = ForwardDiff.value(_conditional_nll(dv_d, dist_0.dv, subject))
-
     # Compute the Hessian approxmation in the random effect vector η
     # FIXME! Don't hardcode for dv
-    W = _∂²l∂η²(dv_d, dist_0.dv, FOCE())
+    return _∂²l∂η²(subject.observations.dv, dv_d, dist_0.dv, FOCE())
   end
-  return nl, nothing, W
 end
 
+_ofdisttype(d::Normal; μ=d.μ, σ=d.σ)    = Normal(μ, σ)
+_ofdisttype(d::LogNormal; μ=d.μ, σ=d.σ) = LogNormal(μ, σ)
+
 # Homoscedastic case
-function _∂²l∂η²(dv_d::AbstractVector{<:Union{Normal,LogNormal}}, dv0_d::Union{Normal,LogNormal}, ::FOCE)
+function _∂²l∂η²(obsdv::AbstractVector, dv_d::AbstractVector{<:Union{Normal,LogNormal}}, dv0::Union{Normal,LogNormal}, ::FOCE)
   # Loop through the distribution vector and extract derivative information
-  σ = ForwardDiff.value(dv0_d.σ)
-  H = sum(eachindex(dv_d)) do j
-    f = SVector(ForwardDiff.partials(dv_d[j].μ).values)/σ
-    return f*f'
+  nrfx = length(ForwardDiff.partials(first(dv_d).μ))
+
+  # Initialize Hessian matrix and gradient vector
+  ## FIXME! Careful about hardcoding for Float64 here
+  H    = @SMatrix zeros(nrfx, nrfx)
+  nl   = 0.0
+  σ = ForwardDiff.value(dv0.σ)
+
+  for j in eachindex(dv_d)
+    obj = obsdv[j]
+    if ismissing(obj)
+      continue
+    end
+    dvj = dv_d[j]
+    f = SVector(ForwardDiff.partials(dvj.μ).values)/σ
+
+    H  += f*f'
+    nl -= _lpdf(_ofdisttype(dvj, μ=ForwardDiff.value(dvj.μ), σ=σ), obj)
   end
 
-  return H
+  return nl, nothing, H
 end
 
 # Heteroscedastic case
-function _∂²l∂η²(dv_d::AbstractVector{<:Normal}, dv0::AbstractVector{<:Normal}, ::FOCE)
+function _∂²l∂η²(obsdv::AbstractVector, dv_d::AbstractVector{<:Normal}, dv0::AbstractVector{<:Normal}, ::FOCE)
   # Loop through the distribution vector and extract derivative information
-  H = sum(eachindex(dv_d)) do j
-    σ = dv0[j].σ
-    f = SVector(ForwardDiff.partials(dv_d[j].μ).values)/σ
-    return f*f'
+  nrfx = length(ForwardDiff.partials(first(dv_d).μ))
+
+  # Initialize Hessian matrix and gradient vector
+  ## FIXME! Careful about hardcoding for Float64 here
+  H    = @SMatrix zeros(nrfx, nrfx)
+  nl   = 0.0
+
+  for j in eachindex(dv_d)
+    obj = obsdv[j]
+    if ismissing(obj)
+      continue
+    end
+    dvj = dv_d[j]
+    σ   = dv0[j].σ
+    f   = SVector(ForwardDiff.partials(dvj.μ).values)/σ
+    H  += f*f'
+    nl -= _lpdf(_ofdisttype(dvj, μ=ForwardDiff.value(dvj.μ), σ=σ), obj)
   end
 
-  return H
+  return nl, nothing, H
 end
 
-function _∂²l∂η²(dv::AbstractVector{<:Union{Normal,LogNormal}}, ::FOCEI)
+function _∂²l∂η²(obsdv::AbstractVector, dv::AbstractVector{<:Union{Normal,LogNormal}}, ::FOCEI)
   # Loop through the distribution vector and extract derivative information
-  H = sum(eachindex(dv)) do j
+  nrfx = length(ForwardDiff.partials(first(dv).μ))
+
+  # Initialize Hessian matrix and gradient vector
+  ## FIXME! Careful about hardcoding for Float64 here
+  H    = @SMatrix zeros(nrfx, nrfx)
+  nl   = 0.0
+
+  for j in eachindex(dv)
+    obj = obsdv[j]
+    if ismissing(obj)
+      continue
+    end
     dvj   = dv[j]
     r_inv = inv(ForwardDiff.value(dvj.σ^2))
     f     = SVector(ForwardDiff.partials(dvj.μ).values)
     del_r = SVector(ForwardDiff.partials(dvj.σ.^2).values)
-    f*r_inv*f' + (r_inv*del_r*r_inv*del_r')/2
+
+    H  += f*r_inv*f' + (r_inv*del_r*r_inv*del_r')/2
+    nl -= ForwardDiff.value(_lpdf(dvj, obj))
   end
 
-  return H
+  return nl, nothing, H
 end
 
 # For FOCE we need all the arguments in case we need to recompute the model at η=0 (heteroscedastic case)
-# but for FOCE we just pass dv_d on to the actual computational kernel.
-_∂²l∂η²(nl_d::ForwardDiff.Dual,
-        dv_d::AbstractVector{<:Union{Normal,LogNormal}},
+# but for FOCEI we just pass dv_d on to the actual computational kernel.
+_∂²l∂η²(dv_d::AbstractVector{<:Union{Normal,LogNormal}},
         m::PumasModel,
         subject::Subject,
         param::NamedTuple,
         vrandeffsorth::AbstractVector,
         ::FOCEI,
-        args...; kwargs...) = ForwardDiff.value(nl_d), nothing, _∂²l∂η²(dv_d, FOCEI())
+        args...; kwargs...) = _∂²l∂η²(subject.observations.dv, dv_d, FOCEI())
 
 
 # FIXME! Don't hardcode for dv
@@ -1001,8 +1037,7 @@ function ∂²l∂η²(m::PumasModel,
 end
 
 # Fallbacks for a usful error message when distribution isn't supported
-_∂²l∂η²(nl_d::ForwardDiff.Dual,
-        dv_d::Any,
+_∂²l∂η²(dv_d::Any,
         m::PumasModel,
         subject::Subject,
         param::NamedTuple,

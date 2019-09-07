@@ -123,13 +123,6 @@ end
 
 struct BayesMCMC <: LikelihoodApproximation end
 
-# function Distributions.fit(model::PumasModel, data::Population, ::BayesMCMC,
-#                            args...; nsamples=5000, kwargs...)
-#   bayes = BayesLogDensity(model, data, args...;kwargs...)
-#   chain,tuned = NUTS_init_tune_mcmc(bayes, nsamples)
-#   BayesMCMCResults(bayes, chain, tuned)
-# end
-
 function Distributions.fit(model::PumasModel, data::Population, ::BayesMCMC, θ_init=init_param(model),
   args...; nadapts=2000,nsamples=10000, kwargs...)
   trf = totransform(model.param)
@@ -141,7 +134,7 @@ function Distributions.fit(model::PumasModel, data::Population, ::BayesMCMC, θ_
   l(θ) = logdensity(bayes, θ)
   metric = DiagEuclideanMetric(length(vparam_aug))
   h = Hamiltonian(metric, l, dldθ)
-  prop = AdvancedHMC.NUTS(Leapfrog(find_good_eps(h, vparam_aug)))
+  prop = NUTS(Leapfrog(find_good_eps(h, vparam_aug)))
   adaptor = StanHMCAdaptor(nadapts, Preconditioner(metric), NesterovDualAveraging(0.8, prop.integrator.ϵ))
   samples, stats = sample(h, prop, vparam_aug, nsamples, adaptor, nadapts; progress=true)
   trans = v -> TransformVariables.transform(trf, v)
