@@ -1,7 +1,7 @@
 using Pumas, Measurements, LabelledArrays
 using Random, LinearAlgebra, Test
 
-data = read_pumas(example_nmtran_data("data1"), cvs = [:sex,:wt,:etn])
+data = read_pumas(example_data("data1"), cvs = [:sex,:wt,:etn])
 subject = data[1]
 
 @testset "Static Vector" begin

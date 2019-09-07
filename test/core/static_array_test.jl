@@ -1,7 +1,7 @@
 using Pumas, Test, Random, LinearAlgebra, LabelledArrays
 
 # Read the data# Read the data
-data = read_pumas(example_nmtran_data("data1"),
+data = read_pumas(example_data("data1"),
                       cvs = [:sex,:wt,:etn])
 # Cut off the `t=0` pre-dose observation as it throws conditional_nll calculations
 # off the scale (variance of the simulated distribution is too small).

@@ -4,7 +4,7 @@ using Pumas, LinearAlgebra, Test, CSV
   #No. of subjects= 100, Dose = 100 or 250mg,DV=Plasma concentration, ug/ml
   #Time = hrs, CL = L/hr, V=L
 
-  pkdata = CSV.read(example_nmtran_data("event_data/CS1_IV1EST_PAR"))
+  pkdata = CSV.read(example_data("event_data/CS1_IV1EST_PAR"))
   pkdata[!,:dv] .= pkdata[!, :CONC]
   pkdata[!,:CMT] .= 1
   data = read_pumas(pkdata,cvs = [:AGE, :WT, :SCR, :CLCR], dvs = [:dv],

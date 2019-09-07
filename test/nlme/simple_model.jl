@@ -2,7 +2,7 @@ using Test
 using Pumas, LinearAlgebra
 
 @testset "likelihood tests from NLME.jl" begin
-data = read_pumas(example_nmtran_data("sim_data_model1"))
+data = read_pumas(example_data("sim_data_model1"))
 #-----------------------------------------------------------------------# Test 1
 mdsl1 = @model begin
     @param begin
@@ -33,13 +33,11 @@ end
 
 param = init_param(mdsl1)
 
-empirical_bayes(mdsl1, data[1], param, Pumas.Laplace())
-
 for (ηstar, dt) in zip([-0.1007, 0.0167, -0.0363, -0.0820, 0.1061, 0.0473, -0.1007, -0.0361, -0.0578, -0.0181], data)
-    @test empirical_bayes(mdsl1, dt, param, Pumas.Laplace())[1] ≈ ηstar rtol=1e-2
+    @test (sqrt(param.Ω)*Pumas._orth_empirical_bayes(mdsl1, dt, param, Pumas.Laplace()))[1] ≈ ηstar rtol=1e-2
 end
 for (ηstar, dt) in zip([-0.114654,0.0350263,-0.024196,-0.0870518,0.0750881,0.059033,-0.114679,-0.023992,-0.0528146,-0.00185361], data)
-    @test empirical_bayes(mdsl1, dt, param, Pumas.LaplaceI())[1] ≈ ηstar rtol=1e-3
+    @test (sqrt(param.Ω)*Pumas._orth_empirical_bayes(mdsl1, dt, param, Pumas.LaplaceI()))[1] ≈ ηstar rtol=1e-3
 end
 
 @test deviance(mdsl1, data, param, Pumas.FO())        ≈ 56.474912258255571 rtol=1e-6
@@ -63,7 +61,7 @@ FittedPumasModel
 Successful minimization:                true
 
 Likelihood approximation:        Pumas.FOCEI
-Objective function value:            45.6238
+Objective function value:          45.623789
 Total number of observation records:      20
 Number of active observation records:     20
 Number of subjects:                       10

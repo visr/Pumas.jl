@@ -1,7 +1,7 @@
 using Test
 using Pumas, LinearAlgebra, Optim
 
-data = read_pumas(example_nmtran_data("sim_data_model1"))
+data = read_pumas(example_data("sim_data_model1"))
 
 #likelihood tests from NLME.jl
 #-----------------------------------------------------------------------# Test 1
@@ -34,8 +34,40 @@ end
 
 param = init_param(mdsl1)
 
-[Pumas.npde( mdsl1, data[i], param, (η=empirical_bayes(mdsl1, data[i], param, Pumas.FOCE()),), 10000) for i in 1:10]
-[Pumas.epred(mdsl1, data[i], param, (η=empirical_bayes(mdsl1, data[i], param, Pumas.FOCE()),), 10000) for i in 1:10]
+[Pumas.npde(
+  mdsl1,
+  data[i],
+  param,
+  Pumas.TransformVariables.transform(
+    Pumas.totransform(
+      mdsl1.random(param)
+    ),
+    Pumas._orth_empirical_bayes(
+      mdsl1,
+      data[i],
+      param,
+      Pumas.FOCE()
+    )
+  ),
+  10000
+) for i in 1:10]
+[Pumas.epred(
+  mdsl1,
+  data[i],
+  param,
+  Pumas.TransformVariables.transform(
+    Pumas.totransform(
+      mdsl1.random(param)
+    ),
+    Pumas._orth_empirical_bayes(
+      mdsl1,
+      data[i],
+      param,
+      Pumas.FOCE()
+    )
+  ),
+  10000
+) for i in 1:10]
 [Pumas.cpred(mdsl1, data[i], param) for i in 1:10]
 [Pumas.cpredi(mdsl1, data[i], param) for i in 1:10]
 
@@ -126,7 +158,7 @@ end
                              [-1.38172560 , 0.942045331],
                              [ 0.905043866, 0.289051786]], data)
 
-    @test Pumas.icwres(mdsl1, dt, param) ≈ sub_icwres rtol=1e-6
+    @test Pumas.icwres(mdsl1, dt, param) ≈ sub_icwres rtol=1e-5
 end
 
 @testset "icwresi" for
@@ -141,13 +173,13 @@ end
                               [-1.38172560 , 0.925641802],
                               [ 0.905043866, 0.314343255]], data)
 
-    @test Pumas.icwresi(mdsl1, dt, param) ≈ sub_icwresi rtol=1e-6
+    @test Pumas.icwresi(mdsl1, dt, param) ≈ sub_icwresi rtol=1e-5
 end
 
 [Pumas.eiwres(mdsl1, data[i], param, 10000) for i in 1:10]
 
 param = (θ = [0.340689], Ω = Diagonal([0.000004]), Σ = 0.0752507)
-@test ηshrinkage(mdsl1, data, param, Pumas.FOCEI()) ≈ [0.997574] rtol=1e-6
+@test ηshrinkage(mdsl1, data, param, Pumas.FOCEI()).η ≈ [0.997574] rtol=1e-6
 ϵshrinkage(mdsl1, data, param, Pumas.FOCEI())
 @test aic(mdsl1, data, param, Pumas.FOCEI()) ≈ 94.30968177483996 rtol=1e-6 #regression test
 @test bic(mdsl1, data, param, Pumas.FOCEI()) ≈ 96.30114632194794 rtol=1e-6 #regression test

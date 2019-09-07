@@ -1,11 +1,13 @@
 using Pumas, Test, LinearAlgebra
 
 @testset "Test with missing values" begin
-  data = read_pumas(example_nmtran_data("sim_data_model1"))
+
+  data         = read_pumas(example_data("sim_data_model1"))
+  data_missing = read_pumas(example_data("sim_data_model1"))
 
   # Make a missing observation
-  push!(data[1].observations.dv, missing)
-  push!(data[1].time, 2)
+  push!(data_missing[1].observations.dv, missing)
+  push!(data_missing[1].time, 2)
 
   model = Dict()
 
@@ -96,6 +98,11 @@ using Pumas, Test, LinearAlgebra
     _model in ("additive", "proportional", "exponential"),
       _approx in (Pumas.FO(), Pumas.FOCE(), Pumas.FOCEI(), Pumas.Laplace(), Pumas.LaplaceI())
 
-    @test fit(model[_model], data, param, _approx) isa Pumas.FittedPumasModel
+    if _model == "proportional" && _approx == Pumas.LaplaceI()
+      # Hessian in random effects beecome indfinite
+      @test_broken fit(model[_model], data, param, _approx) isa Pumas.FittedPumasModel
+    else
+      @test deviance(fit(model[_model], data, param, _approx)) == deviance(fit(model[_model], data_missing, param, _approx))
+    end
   end
 end
