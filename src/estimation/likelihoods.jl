@@ -1046,7 +1046,7 @@ _∂²l∂η²(dv_d::Any,
         args...; kwargs...) = throw(ArgumentError("Distribution is current not supported for the $approx approximation. Please consider a different likelihood approximation."))
 
 # Fitting methods
-struct FittedPumasModel{T1<:PumasModel,T2<:Population,T3,T4<:LikelihoodApproximation, T5, T6, T7}
+struct FittedPumasModel{T1<:PumasModel,T2<:Population,T3,T4<:LikelihoodApproximation, T5, T6, T7, T8}
   model::T1
   data::T2
   optim::T3
@@ -1054,6 +1054,7 @@ struct FittedPumasModel{T1<:PumasModel,T2<:Population,T3,T4<:LikelihoodApproxima
   vvrandeffsorth::T5
   args::T6
   kwargs::T7
+  fixedtrf::T8
 end
 
 function DEFAULT_OPTIMIZE_FN(cost, p, callback)
@@ -1076,6 +1077,30 @@ function DEFAULT_OPTIMIZE_FN(cost, p, callback)
   )
 end
 
+"""
+    _fixed_to_constanttransform(trf::TransformTuple, param::NamedTuple, fixed::NamedTuple)
+
+Replace individual parameter transformations in `trf` with `ConstantTranform` if
+the parameter has an entry in `fixed`. Return a new parameter `NamedTuple` with
+the values in `fixed` in place of the values in input `param`.
+"""
+function _fixed_to_constanttransform(trf, param, fixed)
+  fix_keys = keys(fixed)
+  _keys = keys(trf.transformations)
+  _vals = []
+  _paramval = []
+  for key in _keys
+    if key ∈ fix_keys
+      push!(_vals, ConstantTransform(fixed[key]))
+      push!(_paramval, fixed[key])
+    else
+      push!(_vals, trf.transformations[key])
+      push!(_paramval, param[key])
+    end
+  end
+  new_param = NamedTuple{_keys}(_paramval)
+  return new_param, TransformVariables.TransformTuple(NamedTuple{_keys}(_vals))
+end
 function Distributions.fit(m::PumasModel,
                            population::Population,
                            param::NamedTuple,
@@ -1090,11 +1115,14 @@ function Distributions.fit(m::PumasModel,
                            # in zero. In addition, the returned object should support a opt_minimizer method
                            # that returns the optimized parameters.
                            optimize_fn = DEFAULT_OPTIMIZE_FN,
+                           fixedcoef = NamedTuple(),
                            kwargs...)
 
   # Compute transform object defining the transformations from NamedTuple to Vector while applying any parameter restrictions and apply the transformations
   trf = totransform(m.param)
-  vparam = TransformVariables.inverse(trf, param)
+  fixedtrf=trf
+  param, fixedtrf = _fixed_to_constanttransform(trf, param, fixedcoef)
+  vparam = TransformVariables.inverse(fixedtrf, param)
 
   # We'll store the orthogonalized random effects estimate in vvrandeffsorth which allows us to carry the estimates from last
   # iteration and use them as staring values in the next iteration. We also allocate a buffer to store the
@@ -1122,7 +1150,7 @@ function Distributions.fit(m::PumasModel,
       # Update the Empirical Bayes Estimates explicitly after each iteration
 
       # Convert vector to NamedTuple
-      x = TransformVariables.transform(trf, vx)
+      x = TransformVariables.transform(fixedtrf, vx)
 
       # Sum up loglikelihood contributions
       nll = sum(zip(population, vvrandeffsorth, vvrandeffsorth_tmp)) do (subject, vrandefforths, vrandefforths_tmp)
@@ -1137,7 +1165,7 @@ function Distributions.fit(m::PumasModel,
 
       # Update score
       if g !== nothing
-        marginal_nll_gradient!(g, m, population, x, vvrandeffsorth_tmp, approx, trf, args...; kwargs...)
+        marginal_nll_gradient!(g, m, population, x, vvrandeffsorth_tmp, approx, fixedtrf, args...; kwargs...)
       end
 
       return nll
@@ -1153,11 +1181,11 @@ function Distributions.fit(m::PumasModel,
   # Update the random effects after optimization
   if !(approx isa FO || approx isa NaivePooled)
     for (vrandefforths, subject) in zip(vvrandeffsorth, population)
-      _orth_empirical_bayes!(vrandefforths, m, subject, TransformVariables.transform(trf, opt_minimizer(o)), approx, args...; kwargs...)
+      _orth_empirical_bayes!(vrandefforths, m, subject, TransformVariables.transform(fixedtrf, opt_minimizer(o)), approx, args...; kwargs...)
     end
   end
 
-  return FittedPumasModel(m, population, o, approx, vvrandeffsorth, args, kwargs)
+  return FittedPumasModel(m, population, o, approx, vvrandeffsorth, args, kwargs, fixedtrf)
 end
 
 function Distributions.fit(m::PumasModel,
@@ -1186,7 +1214,10 @@ opt_minimizer(o::Optim.OptimizationResults) = Optim.minimizer(o)
 
 function Base.getproperty(f::FittedPumasModel{<:Any,<:Any,<:Optim.MultivariateOptimizationResults}, s::Symbol)
   if s === :param
-    trf = totransform(f.model.param)
+    # we need to use the transform that takes into account that the fixed param
+    # are transformed according to the ConstantTransformations, and not the
+    # transformations given in totransform(model.param)
+    trf = f.fixedtrf
     TransformVariables.transform(trf, opt_minimizer(f.optim))
   else
     return getfield(f, s)
@@ -1448,7 +1479,7 @@ function StatsBase.stderror(pmi::FittedPumasModelInference)
   return TransformVariables.transform(trf, ss)
 end
 
-# empirical_bayes_dist for FittedPumas
+# empirical_bayes_dist for FittedPumasModel
 function empirical_bayes_dist(fpm::FittedPumasModel)
   map(zip(fpm.data, fpm.vvrandeffsorth)) do (subject, vrandeffsorth)
       empirical_bayes_dist(fpm.model, subject, fpm.param, vrandeffsorth, fpm.approx)
