@@ -98,8 +98,8 @@ end
 
   o = fit(theopmodel_analytical_fo, theopp, param, Pumas.FO())
 
-  ofix1 = fit(theopmodel_analytical_fo, theopp, param, Pumas.FO(); fixedcoef=(θ₁=0.4,))
-  ofix2 = fit(theopmodel_analytical_fo, theopp, param, Pumas.FO(); fixedcoef=(σ_add=0.1,))
+  ofix1 = fit(theopmodel_analytical_fo, theopp, param, Pumas.FO(); constantcoef=(θ₁=0.4,))
+  ofix2 = fit(theopmodel_analytical_fo, theopp, param, Pumas.FO(); constantcoef=(σ_add=0.1,))
 
   @test ofix1.param.θ₁ == 0.4
   @test ofix2.param.σ_add == 0.1
