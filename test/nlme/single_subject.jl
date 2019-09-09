@@ -117,8 +117,31 @@ end
             dv ~ @. Normal(conc,conc*sqrt(Σ)+eps())
         end
     end
+    mdsl1_noeta = @model begin
+        @param begin
+            θ ∈ VectorDomain(1, init=[0.5])
+            Σ ∈ ConstDomain(0.1)
+        end
+
+        @pre begin
+            CL = θ[1]
+            V  = 1.0
+        end
+
+        @vars begin
+            conc = Central / V
+        end
+
+        @dynamics ImmediateAbsorptionModel
+
+        @derived begin
+            dv ~ @. Normal(conc,conc*sqrt(Σ)+eps())
+        end
+    end
 
     param = init_param(mdsl1)
-    fitone = fit(mdsl1, first(data), param)
+    param_noeta = init_param(mdsl1_noeta)
+    fitone = fit(mdsl1_noeta, first(data), param_noeta)
+    fitone = fit(mdsl1, first(data), param; constantcoef=(Ω=[0.0],))
 
 end
