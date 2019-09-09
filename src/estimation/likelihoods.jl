@@ -1115,13 +1115,13 @@ function Distributions.fit(m::PumasModel,
                            # in zero. In addition, the returned object should support a opt_minimizer method
                            # that returns the optimized parameters.
                            optimize_fn = DEFAULT_OPTIMIZE_FN,
-                           fixedcoef = NamedTuple(),
+                           constantcoef = NamedTuple(),
                            kwargs...)
 
   # Compute transform object defining the transformations from NamedTuple to Vector while applying any parameter restrictions and apply the transformations
   trf = totransform(m.param)
   fixedtrf=trf
-  param, fixedtrf = _fixed_to_constanttransform(trf, param, fixedcoef)
+  param, fixedtrf = _fixed_to_constanttransform(trf, param, constantcoef)
   vparam = TransformVariables.inverse(fixedtrf, param)
 
   # We'll store the orthogonalized random effects estimate in vvrandeffsorth which allows us to carry the estimates from last
