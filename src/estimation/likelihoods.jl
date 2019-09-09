@@ -472,7 +472,7 @@ function marginal_nll(m::PumasModel,
                       param::NamedTuple,
                       vrandeffsorth::AbstractVector,
                       ::NaivePooled,
-                      args...; kwargs...)::promote_type(numtype(param), numtype(vrandeffs))
+                      args...; kwargs...)::promote_type(numtype(param), numtype(vrandeffsorth))
 
   # The negative loglikelihood function. There are no random effects.
   conditional_nll(m, subject, param, NamedTuple(), args...;kwargs...)
@@ -1131,7 +1131,7 @@ function Distributions.fit(m::PumasModel,
   # in vvrandeffsorth once the iteration is done.
   if approx isa NaivePooled
     vvrandeffsorth     = [[] for subject in population]
-    vvrandeffsorth_tmp = [copy(vrandeffs) for vrandeffs in vvrandeffs]
+    vvrandeffsorth_tmp = [copy(vrandefforths) for vrandefforths in vvrandeffsorth]
     cb(state) = false
   else
     vvrandeffsorth     = [zero(_vecmean(m.random(param))) for subject in population]
