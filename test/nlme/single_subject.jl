@@ -88,9 +88,6 @@ end
 
 
 @testset "with random" begin
-
-    #likelihood tests from NLME.jl
-    #-----------------------------------------------------------------------# Test 1
     mdsl1 = @model begin
         @param begin
             θ ∈ VectorDomain(1, init=[0.5])
