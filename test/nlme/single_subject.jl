@@ -1,8 +1,8 @@
 using Test
 using Pumas, LinearAlgebra
 
-@testset "Single subject" begin
 data = read_pumas(example_data("sim_data_model1"))
+@testset "Single subject" begin
 #-----------------------------------------------------------------------# Test 1
 mdsl1 = @model begin
     @param begin
@@ -83,5 +83,42 @@ fitnp = fit(model, data, param, Pumas.NaivePooled())
 fit2s = fit(model, data, param, Pumas.TwoStage())
 
 # test something?
+
+end
+
+
+@testset "with random" begin
+
+    #likelihood tests from NLME.jl
+    #-----------------------------------------------------------------------# Test 1
+    mdsl1 = @model begin
+        @param begin
+            θ ∈ VectorDomain(1, init=[0.5])
+            Ω ∈ PDiagDomain(init=[0.04])
+            Σ ∈ ConstDomain(0.1)
+        end
+
+        @random begin
+            η ~ MvNormal(Ω)
+        end
+
+        @pre begin
+            CL = θ[1] * exp(η[1])
+            V  = 1.0
+        end
+
+        @vars begin
+            conc = Central / V
+        end
+
+        @dynamics ImmediateAbsorptionModel
+
+        @derived begin
+            dv ~ @. Normal(conc,conc*sqrt(Σ)+eps())
+        end
+    end
+
+    param = init_param(mdsl1)
+    fitone = fit(mdsl1, first(data), param)
 
 end
