@@ -65,6 +65,6 @@ export fit, stderror, vcov, aic, bic, deviance, informationmatrix
 export infer, inspect
 export vpc, vpc_obs
 export gsa
-export mean, std, var
+export mean, std, var, coef
 
 end # module
