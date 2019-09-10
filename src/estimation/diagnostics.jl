@@ -1,6 +1,6 @@
 function StatsBase.residuals(fpm::FittedPumasModel)
   # Return the residuals
-  return [residuals(fpm.model, subject, fpm.param, vrandeffs, args...; kwargs...) for (subject, vrandeffs) in zip(fpm.data, fpm.vvrandeffs)]
+  return [residuals(fpm.model, subject, coef(fpm), vrandeffs, args...; kwargs...) for (subject, vrandeffs) in zip(fpm.data, fpm.vvrandeffs)]
 end
 function StatsBase.residuals(model::PumasModel, subject::Subject, param::NamedTuple, vrandeffs::AbstractArray, args...; kwargs...)
   rtrf = totransform(model.random(param))
@@ -51,7 +51,7 @@ function wresiduals(fpm::FittedPumasModel, approx::LikelihoodApproximation=fpm.a
     vvrandeffsorth = fpm.vvrandeffsorth
   else
     # re-estimate under approx
-    vvrandeffsorth = [_orth_empirical_bayes(fpm.model, subject, fpm.param, approx, fpm.args...; fpm.kwargs...) for subject in subjects]
+    vvrandeffsorth = [_orth_empirical_bayes(fpm.model, subject, coef(fpm), approx, fpm.args...; fpm.kwargs...) for subject in subjects]
   end
   [wresiduals(fpm, subjects[i], vvrandeffsorth[i], approx, fpm.args...; nsim=nsim, fpm.kwargs...) for i = 1:length(subjects)]
 end
@@ -59,12 +59,12 @@ function wresiduals(fpm::FittedPumasModel, subject::Subject, randeffs, approx::L
   is_sim = nsim == nothing
   if nsim == nothing
     approx = approx
-    wres = wresiduals(fpm.model, subject, fpm.param, randeffs, approx, args...; kwargs...)
-    iwres = iwresiduals(fpm.model, subject, fpm.param, randeffs, approx, args...; kwargs...)
+    wres = wresiduals(fpm.model, subject, coef(fpm), randeffs, approx, args...; kwargs...)
+    iwres = iwresiduals(fpm.model, subject, coef(fpm), randeffs, approx, args...; kwargs...)
   else
     approx = nothing
     wres = nothing
-    iwres = eiwres(fpm.model, subject, fpm.param, nsim)
+    iwres = eiwres(fpm.model, subject, coef(fpm), nsim)
   end
 
   SubjectResidual(wres, iwres, subject, approx)
@@ -533,9 +533,9 @@ function StatsBase.predict(fpm::FittedPumasModel, approx=fpm.approx; nsim=nothin
     vvrandeffsorth = fpm.vvrandeffsorth
   else
     # re-estimate under approx
-    vvrandeffsorth = [_orth_empirical_bayes(fpm.model, subject, fpm.param, approx) for subject in subjects]
+    vvrandeffsorth = [_orth_empirical_bayes(fpm.model, subject, coef(fpm), approx) for subject in subjects]
   end
-  [predict(fpm.model, subjects[i], fpm.param, approx, vvrandeffsorth[i]) for i = 1:length(subjects)]
+  [predict(fpm.model, subjects[i], coef(fpm), approx, vvrandeffsorth[i]) for i = 1:length(subjects)]
 end
 
 function _predict(model, subject, param, approx::FO, vvrandeffsorth)
@@ -560,7 +560,7 @@ function _ipredict(model, subject, param, approx::Union{FOCEI, LaplaceI}, vvrand
 end
 
 function epredict(fpm, subject, vvrandeffsorth, nsim::Integer)
-  epred(fpm.model, subjects, fpm.param, TransformVariables.transform(totransform(fpm.model.random.fpm.param), vvrandeffsorth), nsim)
+  epred(fpm.model, subjects, coef(fpm), TransformVariables.transform(totransform(fpm.model.random.coef(fpm)), vvrandeffsorth), nsim)
 end
 
 function DataFrames.DataFrame(vpred::Vector{<:SubjectPrediction}; include_covariates=true)
@@ -582,14 +582,14 @@ end
 function empirical_bayes(fpm::FittedPumasModel, approx=fpm.approx)
   subjects = fpm.data
 
-  trf = totransform(fpm.model.random(fpm.param))
+  trf = totransform(fpm.model.random(coef(fpm)))
 
   if approx == fpm.approx
     ebes = fpm.vvrandeffsorth
     return [SubjectEBES(TransformVariables.transform(trf, e), s, approx) for (e, s) in zip(ebes, subjects)]
   else
     # re-estimate under approx
-    return [SubjectEBES(TransformVariables.transform(trf, _orth_empirical_bayes(fpm.model, subject, fpm.param, approx), subject, approx)) for subject in subjects]
+    return [SubjectEBES(TransformVariables.transform(trf, _orth_empirical_bayes(fpm.model, subject, coef(fpm), approx), subject, approx)) for subject in subjects]
   end
 end
 
@@ -693,7 +693,7 @@ Returns the names of the parameters which convergence is being checked for.
 """
 function _paramnames(f::FittedPumasModel)
   paramnames = [] # empty array, will fill later
-  for (paramname, paramval) in pairs(f.param) # iterate through the parameters
+  for (paramname, paramval) in pairs(coef(f)) # iterate through the parameters
     # decompose all parameters (matrices, etc.) into scalars and name them appropriately
     _push_varinfo!(paramnames, [], nothing, nothing, paramname, paramval, nothing, nothing)
   end
@@ -701,7 +701,7 @@ function _paramnames(f::FittedPumasModel)
 end
 
 # This will use default args and kwargs!!
-findinfluential(fpm::FittedPumasModel) = findinfluential(fpm.model, fpm.data, fpm.param, fpm.approx, fpm.args...; fpm.kwargs...)
+findinfluential(fpm::FittedPumasModel) = findinfluential(fpm.model, fpm.data, coef(fpm), fpm.approx, fpm.args...; fpm.kwargs...)
 function findinfluential(m::PumasModel,
                          data::Population,
                          param::NamedTuple,

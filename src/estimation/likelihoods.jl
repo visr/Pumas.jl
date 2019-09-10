@@ -1212,20 +1212,24 @@ end
 
 opt_minimizer(o::Optim.OptimizationResults) = Optim.minimizer(o)
 
+function StatsBase.coef(fpm::FittedPumasModel)
+  # we need to use the transform that takes into account that the fixed param
+  # are transformed according to the ConstantTransformations, and not the
+  # transformations given in totransform(model.param)
+  trf = fpm.fixedtrf
+  TransformVariables.transform(trf, opt_minimizer(fpm.optim))
+end
 function Base.getproperty(f::FittedPumasModel{<:Any,<:Any,<:Optim.MultivariateOptimizationResults}, s::Symbol)
   if s === :param
-    # we need to use the transform that takes into account that the fixed param
-    # are transformed according to the ConstantTransformations, and not the
-    # transformations given in totransform(model.param)
-    trf = f.fixedtrf
-    TransformVariables.transform(trf, opt_minimizer(f.optim))
+    # deprecate?
+    coef(f)
   else
     return getfield(f, s)
   end
 end
 
-marginal_nll(      f::FittedPumasModel) = marginal_nll(f.model, f.data, f.param, f.approx)
-StatsBase.deviance(f::FittedPumasModel) = deviance(    f.model, f.data, f.param, f.approx)
+marginal_nll(      f::FittedPumasModel) = marginal_nll(f.model, f.data, coef(f), f.approx)
+StatsBase.deviance(f::FittedPumasModel) = deviance(    f.model, f.data, coef(f), f.approx)
 
 function _observed_information(f::FittedPumasModel,
                                 ::Val{Score},
@@ -1237,11 +1241,11 @@ function _observed_information(f::FittedPumasModel,
   # Transformation the NamedTuple of parameters to a Vector
   # without applying any bounds (identity transform)
   trf = toidentitytransform(f.model.param)
-  param = f.param
+  param = coef(f)
   vparam = TransformVariables.inverse(trf, param)
 
-  fdrelstep_score = _fdrelstep(f.model, f.param, reltol, Val{:central}())
-  fdrelstep_hessian = sqrt(_fdrelstep(f.model, f.param, reltol, Val{:central}()))
+  fdrelstep_score = _fdrelstep(f.model, param, reltol, Val{:central}())
+  fdrelstep_hessian = sqrt(_fdrelstep(f.model, param, reltol, Val{:central}()))
 
   # Initialize arrays
   H = zeros(eltype(vparam), length(vparam), length(vparam))
@@ -1282,12 +1286,12 @@ function _observed_information(f::FittedPumasModel,
 
     if Score
       # Compute score contribution
-      vrandeffsorth = _orth_empirical_bayes(f.model, subject, f. param, f.approx, args...; kwargs...)
+      vrandeffsorth = _orth_empirical_bayes(f.model, subject, coef(f), f.approx, args...; kwargs...)
       marginal_nll_gradient!(
         g,
         f.model,
         subject,
-        f.param,
+        coef(f),
         vrandeffsorth,
         f.approx,
         trf,
@@ -1348,7 +1352,7 @@ end
 function StatsBase.informationmatrix(f::FittedPumasModel; expected::Bool=true)
   data          = f.data
   model         = f.model
-  param         = f.param
+  param         = coef(f)
   vrandeffsorth = f.vvrandeffsorth
   if expected
     return sum(_expected_information(model, data[i], param, vrandeffsorth[i], f.approx) for i in 1:length(data))
@@ -1383,26 +1387,26 @@ parameters.
 StatsBase.stderror(f::FittedPumasModel) = stderror(infer(f))
 
 function Statistics.mean(vfpm::Vector{<:FittedPumasModel})
-  names = keys(first(vfpm).param)
+  names = keys(coef(first(vfpm)))
   means = []
   for name in names
-    push!(means, mean([fpm.param[name] for fpm in vfpm]))
+    push!(means, mean([coef(fpm)[name] for fpm in vfpm]))
   end
   NamedTuple{names}(means)
 end
 function Statistics.std(vfpm::Vector{<:FittedPumasModel})
-  names = keys(first(vfpm).param)
+  names = keys(coef(first(vfpm)))
   stds = []
   for name in names
-    push!(stds, std([fpm.param[name] for fpm in vfpm]))
+    push!(stds, std([coef(fpm)[name] for fpm in vfpm]))
   end
   NamedTuple{names}(stds)
 end
 function Statistics.var(vfpm::Vector{<:FittedPumasModel})
-  names = keys(first(vfpm).param)
+  names = keys(coef(first(vfpm)))
   vars = []
   for name in names
-    push!(vars, var([fpm.param[name] for fpm in vfpm]))
+    push!(vars, var([coef(fpm)[name] for fpm in vfpm]))
   end
   NamedTuple{names}(vars)
 end
@@ -1482,6 +1486,6 @@ end
 # empirical_bayes_dist for FittedPumasModel
 function empirical_bayes_dist(fpm::FittedPumasModel)
   map(zip(fpm.data, fpm.vvrandeffsorth)) do (subject, vrandeffsorth)
-      empirical_bayes_dist(fpm.model, subject, fpm.param, vrandeffsorth, fpm.approx)
+      empirical_bayes_dist(fpm.model, subject, coef(fpm), vrandeffsorth, fpm.approx)
   end
 end

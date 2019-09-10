@@ -211,10 +211,10 @@ Plotting methods on model diagnostics are coming soon.
 
 ### Simulate from fitted model
 
-In order to simulate from a fitted model `simobs` can be used. The final parameters of the fitted models are available in the `res.param`
+In order to simulate from a fitted model `simobs` can be used. The final parameters of the fitted models are available in the `coef(res)`
 
 ```julia
-fitparam = res.param
+fitparam = coef(res)
 ```
 
 You can then pass these optimized parameters into a `simobs` call and pass the same dataset or simulate into a different design
