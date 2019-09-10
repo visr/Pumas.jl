@@ -1,8 +1,10 @@
 # In vitro data modeling
 function estimate_fdiss(subj::InVitroForm, model::Union{Symbol, Function}; time_lag=false,
                         p0=nothing, alg=LBFGS(), box=true, upper_bound=nothing, lower_bound=nothing)
-    lower_bound, upper_bound, p0 = fill_p0_and_bounds(subj.conc, subj.time, model, time_lag, p0, upper_bound, lower_bound)
-    model = typeof(model) <: Symbol ? get_avail_models()[model] : model
+    if typeof(model) <: Symbol
+      lower_bound, upper_bound, p0 = fill_p0_and_bounds(subj.conc, subj.time, model, time_lag, p0, upper_bound, lower_bound)
+      model = get_avail_models()[model]
+    end
     pmin = Curvefit(subj.conc, subj.time, model, p0, alg, box, lower_bound, upper_bound).pmin
     subj.m = model; subj.alg = alg; subj.p0 = p0; subj.ub = upper_bound; subj.lb = lower_bound
     subj.pmin = pmin
@@ -12,8 +14,10 @@ end
 # Estimate UIR
 function estimate_uir(subj::UirData, model::Union{Symbol, Function}; frac=nothing, p0=nothing, alg=LBFGS(), 
                       box=false, upper_bound=nothing, lower_bound=nothing)
-  lower_bound, upper_bound, p0 = _fill_p0_and_bounds(subj.conc, subj.time, model, p0, box, upper_bound, lower_bound)
-  model = typeof(model) <: Symbol ? get_avail_uir_models()[model] : model
+  if typeof(model) <: Symbol
+    lower_bound, upper_bound, p0 = _fill_p0_and_bounds(subj.conc, subj.time, model, p0, box, upper_bound, lower_bound)
+    model = get_avail_uir_models()[model]  
+  end
   m(t, p) = model(t, p) * frac * subj.dose  ### p[1] => ka, p[2] => kel, p[3] => V
   pmin = Curvefit(subj.conc, subj.time, m, p0, alg, box, lower_bound, upper_bound).pmin
   subj.m = m; subj.alg = alg; subj.p0 = p0; subj.ub = upper_bound; subj.lb = lower_bound
@@ -22,32 +26,20 @@ function estimate_uir(subj::UirData, model::Union{Symbol, Function}; frac=nothin
 end
 
 function fill_p0_and_bounds(conc, time, model, time_lag, p0, ub, lb)
-  if typeof(model) <: Symbol
-    avail_models = get_avail_models()
-    if model in keys(avail_models)
-      return ind_filler()[model](conc, time, time_lag, p0, ub, lb)
-    else
-      error("given model is not available, please pass the functional form")
-    end
+  avail_models = get_avail_models()
+  if model in keys(avail_models)
+    return ind_filler()[model](conc, time, time_lag, p0, ub, lb)
   else
-    if p0 == nothing || lb == nothing || ub == nothing
-      error("for custom model, please provide initial values of model params, lower bound and upper bound!!")
-    end
+    error("given model is not available, please pass the functional form")
   end
 end
 
 function _fill_p0_and_bounds(conc, time, model, p0, box, ub, lb)
-  if typeof(model) <: Symbol
-    avail_models = get_avail_uir_models()
-    if model in keys(avail_models)
-      return vivo_ind_filler()[model](conc, time, box, p0, ub, lb)
-    else
-      error("given model is not available, please pass the functional form")
-    end
+  avail_models = get_avail_uir_models()
+  if model in keys(avail_models)
+    return vivo_ind_filler()[model](conc, time, box, p0, ub, lb)
   else
-    if p0 == nothing || lb == nothing || ub == nothing
-      error("for custom model, please provide initial values of model params lower bound and upper bound!!")
-    end
+    error("given model is not available, please pass the functional form")
   end
 end
 
