@@ -22,7 +22,7 @@ end
 
 struct OBS_VPC
   t::AbstractVector
-  Obs_vpc::AbstractVector  
+  Obs_vpc::AbstractVector
 end
 
 struct VPC
@@ -69,7 +69,7 @@ function get_simulation_quantiles(sims::AbstractVector, reps::Integer, dv_::Symb
         end
       end
       push!(quantiles_sim, [quantile(sims_t[strt],quantiles) for strt in 1:length(strat_quant)])
-    end 
+    end
     push!(pop_quantiles,quantiles_sim)
   end
   pop_quantiles
@@ -94,11 +94,11 @@ function get_observation_quantiles(data::Population, dv_::Symbol, idv_::Abstract
       end
     end
     push!(quantiles_obs, OBS_QUANT([quantile(obs_t[strt][t],quantiles[2]) for t in 1:length(idv_)]))
-  end 
+  end
   quantiles_obs
 end
 
-#Compute quantiles of the quantiles to get the values for the ribbons 
+#Compute quantiles of the quantiles to get the values for the ribbons
 function get_quant_quantiles(pop_quantiles::AbstractVector, reps::Int, idv_::AbstractVector, quantiles::AbstractVector, strat_quant::AbstractVector)
   quantile_quantiles = []
   for strt in 1:length(strat_quant)
@@ -137,13 +137,13 @@ end
 """
 vpc(m::PumasModel, data::Population, fixeffs::NamedTuple, reps::Integer;quantiles = [0.05,0.5,0.95], idv = :time, dv = [:dv], stratify_on = nothing)
 
-Computes the quantiles for VPC. The default quantiles are the 5th, 50th and 95th percentiles. 
-  args: PumasModel, Population, Parameters and Number of Repetitions  
-        
+Computes the quantiles for VPC. The default quantiles are the 5th, 50th and 95th percentiles.
+  args: PumasModel, Population, Parameters and Number of Repetitions
+
   Instead of the model, simulations from a previous vpc run (obtained from VPC.Simulations) or a FittedPumasModel can be used.
 
-  kwargs: quantiles - Takes an array of quantiles to be calculated. The first three indices are used for plotting. 
-          idv - The idv to be used, defaults to time. 
+  kwargs: quantiles - Takes an array of quantiles to be calculated. The first three indices are used for plotting.
+          idv - The idv to be used, defaults to time.
           dv - Takes an array of symbols of the dvs for which the quantiles are computed.
           stratify_on - Takes an array of symbols of covariates which the VPC is stratified on.
 """
@@ -165,7 +165,7 @@ function vpc(m::PumasModel, data::Population, fixeffs::NamedTuple, reps::Integer
 
   if idv == :time
     idv_ = getproperty(data[1], idv)
-  else 
+  else
     idv_ = [getproperty(data[i].covariates, idv) for i in 1:length(data)]
   end
 
@@ -177,7 +177,7 @@ function vpc(m::PumasModel, data::Population, fixeffs::NamedTuple, reps::Integer
 
   for dv_ in dv
     stratified_vpc = VPC_STRAT[]
-    obs_vpc_dv = [] 
+    obs_vpc_dv = []
     for strat in 1:length(strat_quants)
 
       if stratify_on != nothing
@@ -204,7 +204,7 @@ function vpc(m::PumasModel, data::Population, fixeffs::NamedTuple, reps::Integer
       push!(stratified_vpc, vpc_strat)
     end
     push!(vpcs, VPC_DV(stratified_vpc, dv_))
-    push!(obs_vpc, obs_vpc_dv) 
+    push!(obs_vpc, obs_vpc_dv)
   end
   VPC(vpcs, OBS_VPC(idv_, obs_vpc), sims, idv, data)
 end
@@ -219,13 +219,13 @@ function vpc_obs(data::Population;quantiles = [0.05,0.5,0.95], idv = :time, dv =
   else
     push!(strat_quants, [1])
   end
-  
+
   if idv == :time
     idv_ = getproperty(data[1], idv)
-  else 
+  else
     idv_ = getproperty(data[1].covariates, idv)
   end
-  
+
   obs_vpc = []
   for dv_ in dv
     obs_vpc_dv = []
@@ -243,7 +243,7 @@ end
 
 #Use FittedPumasModel object for vpc
 function vpc(fpm::FittedPumasModel, reps::Integer, data::Population=fpm.data;quantiles = [0.05,0.5,0.95], idv = :time, dv = [:dv], stratify_on = nothing)
-  vpc(fpm.model, fpm.data, fpm.param, reps, quantiles=quantiles, idv=idv, dv=dv, stratify_on=stratify_on)
+  vpc(fpm.model, fpm.data, coef(fpm), reps, quantiles=quantiles, idv=idv, dv=dv, stratify_on=stratify_on)
 end
 
 #Use simulations from a previous vpc calculation for a different statification
@@ -257,7 +257,7 @@ function vpc(sims::AbstractVector, data::Population;quantiles = [0.05,0.5,0.95],
 
   if idv == :time
     idv_ = getproperty(data[1], idv)
-  else 
+  else
     idv_ = getproperty(data[1].covariates, idv)
   end
 
@@ -275,7 +275,7 @@ function vpc(sims::AbstractVector, data::Population;quantiles = [0.05,0.5,0.95],
 
   for dv_ in dv
     stratified_vpc = VPC_STRAT[]
-    obs_vpc_dv = [] 
+    obs_vpc_dv = []
     for strat in 1:length(strat_quants)
 
       if stratify_on != nothing
@@ -291,7 +291,7 @@ function vpc(sims::AbstractVector, data::Population;quantiles = [0.05,0.5,0.95],
         pop_quantiles = get_simulation_quantiles(sims, reps, dv_, idv_, quantiles, strat_quants[strat],nothing)
         quantile_quantiles = get_quant_quantiles(pop_quantiles,reps,idv_,quantiles, strat_quants[strat])
         vpc_strat = get_vpc(quantile_quantiles, data, dv_, idv_, sims, quantiles, strat_quants[strat], nothing)
-        if data[1].observations != nothing  
+        if data[1].observations != nothing
           obs_quantiles = get_observation_quantiles(data, dv_, idv_, quantiles, strat_quants[strat], nothing)
         else
           obs_quantiles = [nothing for i in 1:length(strat_quants[strat])]
@@ -302,13 +302,13 @@ function vpc(sims::AbstractVector, data::Population;quantiles = [0.05,0.5,0.95],
       push!(stratified_vpc, vpc_strat)
     end
     push!(vpcs, VPC_DV(stratified_vpc, dv_))
-    push!(obs_vpc, obs_vpc_dv) 
+    push!(obs_vpc, obs_vpc_dv)
   end
   VPC(vpcs, OBS_VPC(idv_, obs_vpc), sims, idv, data)
 end
 
 # function show(io::IO, mime::MIME"text/plain", vpc::VPC)
-#   println(io, "")  
+#   println(io, "")
 # end
 
 #Recipes for the VPC and subsequent objects that store the quantiles per dv, strata and quantiles
@@ -319,7 +319,7 @@ end
       t, vpc.vpc_dv[i], vpc.Obs_vpc.Obs_vpc[i], vpc.idv
     end
   end
-  
+
 end
 
 @recipe function f(t, vpc_dv::VPC_DV, data, idv=:time)
@@ -350,9 +350,9 @@ end
     for y in [vpc_quant.Fiftieth, data]
       @series begin
         t, y
-      end 
-    end 
-  else 
+      end
+    end
+  else
     t, vpc_quant.Fiftieth
   end
 end
@@ -364,7 +364,7 @@ end
         @series begin
           Obs_vpc.t, Obs_vpc.Obs_vpc[i][j][k]
         end
-      end 
+      end
     end
   end
 end

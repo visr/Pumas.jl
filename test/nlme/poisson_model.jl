@@ -67,7 +67,7 @@ using Pumas, Test
   o = fit(poisson_model, df, param, Pumas.LaplaceI())
   @test 2*Pumas.marginal_nll(o) ≈ 3809.80599298763 rtol=1e-3
 
-  p = o.param
+  p = coef(o)
   @test p.θ₁       ≈ 1.0293E+00 rtol=1e-3
   @test p.θ₂       ≈ 4.5185E-01 rtol=1e-3
   @test p.Ω.mat[1] ≈ 1.2201E-01 rtol=1e-3
