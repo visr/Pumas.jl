@@ -56,6 +56,21 @@ test-nca:
   - pushes
 
 
+test-nlme-basic:
+  stage: test
+  variables:
+    GROUP: "NLME_Basic"
+  script:
+    - julia -e 'using InteractiveUtils;
+                versioninfo()'
+    - julia --project -e 'using Pkg;
+                          Pkg.test("Pumas"; coverage=true);'
+  only:
+    - master
+    - tags
+    - external
+    - pushes
+
 test-nlme-ml1:
   stage: test
   variables:
