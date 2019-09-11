@@ -239,23 +239,33 @@ function simobs(m::PumasModel, subject::Subject,
   SimulatedObservations(subject,obstimes,obs)
 end
 
-function simobs(m::PumasModel, pop::Population, args...;
+function simobs(m::PumasModel, pop::Population,
+                param = init_param(m),
+                randeffs=sample_randeffs(m, param),
+                args...;
+                alg=AutoTsit5(Rosenbrock23()),
+                ensemblealg = EnsembleThreads(),
                 parallel_type = Threading,
                 kwargs...)
-  time = @elapsed if parallel_type == Serial
-    sims = [simobs(m,subject,args...;kwargs...) for subject in pop]
-  elseif parallel_type == Threading
-    _sims = Vector{Any}(undef,length(pop))
-    Threads.@threads for i in 1:length(pop)
-      _sims[i] = simobs(m,pop[i],args...;kwargs...)
-    end
-    sims = [sim for sim in _sims] # Make strict typed
-  elseif parallel_type == Distributed
-    sims = pmap((subject)->simobs(m,subject,args...;kwargs...),pop)
-  elseif parallel_type == SplitThreads
-    error("SplitThreads is not yet implemented")
+
+  function simobs_prob_func(prob,i,repeat)
+    col = m.pre(param, randeffs, pop[i])
+    _problem(m,pop[i],col,args...;kwargs...)
   end
-  sims
+
+  # TODO: Get rid of repeat calculations
+  function simobs_output_func(sol,i)
+    col = m.pre(param, randeffs, pop[i])
+    obstimes = :obstimes ∈ keys(kwargs) ? kwargs[:obstimes] : observationtimes(pop[i])
+    derived = m.derived(col,sol,obstimes,pop[i])
+    obs = m.observed(col,sol,obstimes,map(_rand,derived),pop[i])
+    obs,false
+  end
+
+  prob = EnsembleProblem(m.prob,prob_func = simobs_prob_func,
+                         output_func = simobs_output_func)
+  sol = solve(prob,alg,ensemblealg,args...;trajectories = length(pop),kwargs...)
+  SimulatedPopulation(sol)
 end
 
 """
