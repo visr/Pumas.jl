@@ -447,12 +447,14 @@ end
 
 # units go under the header
 to_dataframe(report::NCAReport) = convert(DataFrame, report)
+DataFrames.DataFrame(report::NCAReport) = to_dataframe(report)
 function Base.convert(::Type{DataFrame}, report::NCAReport)
   #report.settings[:subject] && return DataFrame(map(x->[x], report.values))
   hcat(report.values...)
 end
 
 to_markdown(report::NCAReport) = convert(Markdown.MD, report)
+Markdown.MD(report::NCAReport) = to_markdown(report)
 function Base.convert(::Type{Markdown.MD}, report::NCAReport)
   _io = IOBuffer()
   println(_io, "# Noncompartmental Analysis Report")
