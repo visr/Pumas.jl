@@ -99,6 +99,9 @@ inds = vcat(1:240,242:480,482:720,722:length(subject.observations))
 @test sim[:periph] ≈ subject.observations.periph rtol=1e-6
 @test sim[:resp] ≈ subject.observations.resp rtol=1e-6
 
+# without events
+@test_nowarn simobs(m23, Subject(id=1), param, randeffs, obstimes=(0, 1.0))
+
 # Indirect Response Model (irm2)
 
 ###############################
