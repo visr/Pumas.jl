@@ -54,7 +54,7 @@ end
   model = h.args[1]
   @unpack vitro_data, vivo_data, fabs, pmin = model
   
-  title  := "In Vitro In Vivo module"
+  title  := "In Vitro In Vivo Plot"
   xlabel := "Fdiss(t * Tscale)"
   ylabel := "FAbs Observed" 
   legend := :topleft

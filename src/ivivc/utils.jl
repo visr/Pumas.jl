@@ -12,11 +12,11 @@ function estimate_fdiss(subj::InVitroForm, model::Union{Symbol, Function}; time_
 end
 
 # Estimate UIR
-function estimate_uir(subj::UirData, model::Union{Symbol, Function}; frac=nothing, p0=nothing, alg=LBFGS(), 
+function estimate_uir(subj::UirData, model::Union{Symbol, Function}; frac=1.0, p0=nothing, alg=LBFGS(), 
                       box=false, upper_bound=nothing, lower_bound=nothing)
   if typeof(model) <: Symbol
     lower_bound, upper_bound, p0 = _fill_p0_and_bounds(subj.conc, subj.time, model, p0, box, upper_bound, lower_bound)
-    model = get_avail_uir_models()[model]  
+    model = get_avail_uir_models()[model]
   end
   m(t, p) = model(t, p) * frac * subj.dose  ### p[1] => ka, p[2] => kel, p[3] => V
   pmin = Curvefit(subj.conc, subj.time, m, p0, alg, box, lower_bound, upper_bound).pmin
