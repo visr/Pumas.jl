@@ -10,7 +10,7 @@ using MCMCChains: Chains
 
 import DiffResults: DiffResult
 
-import DataInterpolations, Loess
+import DataInterpolations
 
 @reexport using OrdinaryDiffEq, Unitful
 @reexport using Distributions, DataFrames
