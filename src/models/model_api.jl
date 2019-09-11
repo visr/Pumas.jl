@@ -245,7 +245,6 @@ function simobs(m::PumasModel, pop::Population,
                 args...;
                 alg=AutoTsit5(Rosenbrock23()),
                 ensemblealg = EnsembleThreads(),
-                parallel_type = Threading,
                 kwargs...)
 
   function simobs_prob_func(prob,i,repeat)
