@@ -8,6 +8,8 @@ using DiffEqDiffTools, Reexport, StatsBase,
 using AdvancedHMC: DiagEuclideanMetric, Hamiltonian, NUTS, Leapfrog, find_good_eps, StanHMCAdaptor, Preconditioner, NesterovDualAveraging
 using MCMCChains: Chains
 
+import DiffResults: DiffResult
+
 import DataInterpolations
 
 @reexport using OrdinaryDiffEq, Unitful

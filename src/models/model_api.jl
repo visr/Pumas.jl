@@ -1,3 +1,8 @@
+const DEFAULT_ESTIMATION_RELTOL=1e-8
+const DEFAULT_ESTIMATION_ABSTOL=1e-12
+const DEFAULT_SIMULATION_RELTOL=1e-3
+const DEFAULT_SIMULATION_ABSTOL=1e-6
+
 """
     PumasModel
 
@@ -78,7 +83,9 @@ function DiffEqBase.solve(m::PumasModel, subject::Subject,
                           args...; kwargs...)
   m.prob === nothing && return nothing
   col = m.pre(param, randeffs, subject)
-  _solve(m,subject,col,args...;saveat=saveat,kwargs...)
+  prob = _problem(m,subject,col,args...;saveat=saveat,kwargs...)
+  alg = m.prob isa ExplicitModel ? nothing : alg=AutoTsit5(Rosenbrock23())
+  solve(prob,args...;alg=alg,kwargs...)
 end
 
 @enum ParallelType Serial=1 Threading=2 Distributed=3 SplitThreads=4
@@ -106,29 +113,21 @@ end
 This internal function is just so that the collation doesn't need to
 be repeated in the other API functions
 """
-function _solve(m::PumasModel, subject, col, args...;
-                tspan=nothing, saveat=nothing, kwargs...)
+function _problem(m::PumasModel, subject, col, args...;
+                tspan=nothing, saveat=Float64[], kwargs...)
   m.prob === nothing && return nothing
   if tspan === nothing
     tspan = float.(timespan(subject,tspan,saveat))
   end
 
   if m.prob isa ExplicitModel
-    return _solve_analytical(m, subject, tspan, col, args...;kwargs...)
+    _prob = _build_analytical_problem(m, subject, tspan, col, args...;kwargs...)
   elseif m.prob isa AnalyticalPKProblem
-    pksol = _solve_analytical(m, subject, tspan, col, args...;kwargs...)
+    _prob1 = _build_analytical_problem(m, subject, tspan, col, args...;kwargs...)
+    pksol = solve(_prob1,args...;kwargs...)
     _col = (col...,___pk=pksol)
     u0  = m.init(col, tspan[1])
-    _prob = remake(m.prob.prob2; p=_col, u0=u0, tspan=tspan)
-    numsol = solve(_prob,args...;saveat=saveat,alg=AutoTsit5(Rosenbrock23()),kwargs...)
-    if saveat !== nothing
-      t = saveat
-      u = [[pksol(numsol.t[i]);numsol[i]] for i in 1:length(numsol)]
-    else
-      t = numsol.t
-      u = numsol.u
-    end
-    return AnalyticalPKSolution(u,t,pksol,numsol)
+    _prob = PresetAnalyticalPKProblem(remake(m.prob.prob2; p=_col, u0=u0, tspan=tspan, saveat=saveat),pksol)
   else
     u0  = m.init(col, tspan[1])
     mtmp = PumasModel(m.param,
@@ -138,8 +137,67 @@ function _solve(m::PumasModel, subject, col, args...;
                      remake(m.prob; p=col, u0=u0, tspan=tspan),
                      m.derived,
                      m.observed)
-    return _solve_diffeq(mtmp, subject, args...;saveat=saveat, kwargs...)
+    _prob = _build_diffeq_problem(mtmp, subject, args...;saveat=saveat, kwargs...)
   end
+  _prob
+end
+
+function _derived(model::PumasModel,
+                  subject::Subject,
+                  param::NamedTuple,
+                  vrandeffs::AbstractArray,
+                  args...;
+                  kwargs...)
+  rtrf = totransform(model.random(param))
+  randeffs = TransformVariables.transform(rtrf, vrandeffs)
+  dist = _derived(model, subject, param, randeffs, args...; kwargs...)
+end
+
+"""
+This internal function is just so that the calculation of derived doesn't need
+to be repeated in the other API functions
+"""
+@inline function _derived(m::PumasModel,
+                          subject::Subject,
+                          param::NamedTuple,
+                          randeffs::NamedTuple,
+                          args...;
+                          # This is the only entry point to the ODE solver for
+                          # the estimation code so estimation-specific defaults
+                          # are set here, but are overriden in other cases.
+                          # Super messy and should get cleaned.
+                          reltol=DEFAULT_ESTIMATION_RELTOL,
+                          abstol=DEFAULT_ESTIMATION_ABSTOL,
+                          alg = AutoVern7(Rodas5()),
+                          # Estimation only uses subject.time for the
+                          # observation time series
+                          obstimes = subject.time,
+                          kwargs...)
+
+  # collate that arguments
+  collated = m.pre(param, randeffs, subject)
+
+  # create solution object. By passing saveat=obstimes, we compute the solution only
+  # at obstimes such that we can simply pass solution.u to m.derived
+  _saveat = obstimes === nothing ? Float64[] : obstimes
+  _prob = _problem(m, subject, collated, args...; saveat=_saveat, kwargs...)
+  if _prob === nothing
+    dist = m.derived(collated, nothing, obstimes, subject)
+  else
+    sol = solve(_prob,args...;reltol=reltol, abstol=abstol, alg=alg, kwargs...)
+    # if solution contains NaN return Inf
+    if (sol.retcode != :Success && sol.retcode != :Terminated) ||
+      # FIXME! Make this uniform across the two solution types
+      # FIXME! obstimes can be empty
+      any(x->any(isnan,x), sol isa PKPDAnalyticalSolution ? sol(obstimes[end]) : sol.u[end])
+      # FIXME! Do we need to make this type stable?
+      return nothing
+    end
+
+    # extract distributions
+    dist = m.derived(collated, sol, obstimes, subject)
+  end
+  dist
 end
 
 #=
@@ -151,10 +209,6 @@ constant distribution and passes it through.
 _rand(d::Distributions.Sampleable) = rand(d)
 _rand(d::AbstractArray{<:Distributions.Sampleable}) = map(_rand,d)
 _rand(d) = d
-
-
-zval(d) = 0.0
-zval(d::Distributions.Normal{T}) where {T} = zero(T)
 
 """
     simobs(m::PumasModel, subject::Subject, param[, randeffs, [args...]];
@@ -174,14 +228,17 @@ function simobs(m::PumasModel, subject::Subject,
   col = m.pre(param, randeffs, subject)
   m.prob !== nothing && (isnothing(obstimes) || isempty(obstimes)) &&
                           throw(ArgumentError("obstimes is empty."))
-  sol = _solve(m, subject, col, args...; saveat=saveat, kwargs...)
+  prob = _problem(m, subject, col, args...; saveat=saveat, kwargs...)
+  alg = m.prob isa ExplicitModel ? nothing : alg=AutoTsit5(Rosenbrock23())
+  sol = prob !== nothing ? solve(prob, args...; alg=alg, kwargs...) : nothing
   derived = m.derived(col,sol,obstimes,subject)
   obs = m.observed(col,sol,obstimes,map(_rand,derived),subject)
   SimulatedObservations(subject,obstimes,obs)
 end
 
 function simobs(m::PumasModel, pop::Population, args...;
-                parallel_type = Threading, kwargs...)
+                parallel_type = Threading,
+                kwargs...)
   time = @elapsed if parallel_type == Serial
     sims = [simobs(m,subject,args...;kwargs...) for subject in pop]
   elseif parallel_type == Threading
