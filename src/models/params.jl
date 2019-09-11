@@ -26,7 +26,7 @@ struct RealDomain{L,U,T} <: Domain
   upper::U
   init::T
 end
-RealDomain(;lower=-∞,upper=+∞,init=0.) = RealDomain(lower, upper, init)
+RealDomain(;lower=-∞,upper=∞,init=0.) = RealDomain(lower, upper, init)
 init(d::RealDomain) = d.init
 
 
@@ -44,7 +44,7 @@ end
 _vec(n, x::AbstractVector) = x
 _vec(n, x) = fill(x, n)
 
-VectorDomain(n::Int; lower=-∞,upper=+∞,init=0.0) = VectorDomain(_vec(n,lower), _vec(n,upper), _vec(n,init))
+VectorDomain(n::Int; lower=-∞,upper=∞,init=0.0) = VectorDomain(_vec(n,lower), _vec(n,upper), _vec(n,init))
 
 init(d::VectorDomain) = d.init
 
