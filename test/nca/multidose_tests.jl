@@ -51,7 +51,7 @@ lambdazdf = @test_nowarn NCA.lambdaz(mncapop)
 ncareport1 = NCAReport(mncapop[1])
 @test_nowarn ncareport1
 @test_skip display(NCA.to_markdown(ncareport1))
-@test_nowarn NCA.to_dataframe(ncareport1)
+@test_nowarn DataFrame(ncareport1)
 
 popncareport = NCAReport(mncapop)
 @test_skip display(NCA.to_markdown(popncareport))
