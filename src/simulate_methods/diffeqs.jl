@@ -54,7 +54,7 @@ function build_pkpd_problem(_prob::DiffEqBase.AbstractJumpProblem,set_parameters
 end
 
 function ith_subject_cb(p,datai::Subject,u0,t0,ProbType,saveat,save_discont,continuity)
-  isempty(datai.events) && return t0, nothing
+  isempty(datai.events) && return Float64[], nothing
   ss_abstol = 1e-12 # TODO: Make an option
   ss_reltol = 1e-12 # TODO: Make an option
   ss_max_iters = 1000
