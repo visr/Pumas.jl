@@ -716,16 +716,16 @@ function _derived_vηorth_gradient(
   # Costruct closure for calling conditional_nll_ext as a function
   # of a random effects vector. This makes it possible for ForwardDiff's
   # tagging system to work properly
-  __derived =  vηorth -> begin
+  _transform_derived =  vηorth -> begin
     randeffs = TransformVariables.transform(totransform(m.random(param)), vηorth)
     return _derived(m, subject, param, randeffs, args...; kwargs...)
   end
   # Construct vector of dual numbers for the random effects to track the partial derivatives
-  cfg = ForwardDiff.JacobianConfig(__derived, vrandeffsorth)
+  cfg = ForwardDiff.JacobianConfig(_transform_derived, vrandeffsorth)
 
   ForwardDiff.seed!(cfg.duals, vrandeffsorth, cfg.seeds)
 
-  return __derived(cfg.duals)
+  return _transform_derived(cfg.duals)
 end
 
 function ∂²l∂η²(m::PumasModel,
