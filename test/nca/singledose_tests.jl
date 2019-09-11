@@ -19,7 +19,7 @@ ncapop = @test_nowarn read_nca(data, id=:ID, time=:TIME, conc=:CObs, amt=:AMT_IV
 popncareport = NCAReport(ncapop, ithdose=1)
 @test_nowarn popncareport
 @test_skip display(NCA.to_markdown(popncareport))
-@test_nowarn NCA.to_dataframe(popncareport)
+@test_nowarn DataFrame(popncareport)
 
 lambdazdf = @test_nowarn NCA.lambdaz(ncapop)
 @test size(lambdazdf, 2) == 2
