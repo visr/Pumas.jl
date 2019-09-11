@@ -26,7 +26,7 @@ using Pumas, TransformVariables, LinearAlgebra, Distributions
 
   @testset "Promotion" begin
     d = RealDomain(lower=0, upper=1.0)
-    @test d.lower === 0.0
+    @test d.lower === 0
     @test d.upper === 1.0
     d = VectorDomain(2,lower=[0  , 2.0], upper=[10  , 4  ], init=[2, 2])
     @test (d.lower...,) == (0.0, 2.0)
