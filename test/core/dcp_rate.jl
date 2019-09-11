@@ -62,8 +62,8 @@ p = ( θ = [1.5,  #Ka
   )
 
 
-sim = simobs(m_diffeq, ev16, p; abstol=1e-14, reltol=1e-14, parallel_type = Pumas.Serial)
-simm2 = simobs(m_diffeq, evm216, p; abstol=1e-14, reltol=1e-14, parallel_type = Pumas.Serial)
+sim = simobs(m_diffeq, ev16, p; abstol=1e-14, reltol=1e-14, ensemblealg = EnsembleSerial())
+simm2 = simobs(m_diffeq, evm216, p; abstol=1e-14, reltol=1e-14, ensemblealg = EnsembleSerial())
 
 @test maximum(maximum(s[:cp]) for s in sim) < 1e4
 @test maximum(maximum(s[:cp]) for s in simm2) < 1e4

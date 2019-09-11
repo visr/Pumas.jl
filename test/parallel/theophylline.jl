@@ -87,9 +87,9 @@ param = (
     σ_add = 0.388
      )
 
-simobs(theopmodel_fo_a, theopp, param, parallel_type=Pumas.Serial)
-simobs(theopmodel_fo_s, theopp, param, parallel_type=Pumas.Serial)
-simobs(theopmodel_fo_a, theopp, param, parallel_type=Pumas.Threading)
-simobs(theopmodel_fo_s, theopp, param, parallel_type=Pumas.Threading)
-simobs(theopmodel_fo_a, theopp, param, parallel_type=Pumas.Distributed)
-simobs(theopmodel_fo_s, theopp, param, parallel_type=Pumas.Distributed)
+simobs(theopmodel_fo_a, theopp, param, ensemblealg = EnsembleSerial())
+simobs(theopmodel_fo_s, theopp, param, ensemblealg = EnsembleSerial())
+simobs(theopmodel_fo_a, theopp, param, ensemblealg = EnsembleThreads())
+simobs(theopmodel_fo_s, theopp, param, ensemblealg = EnsembleThreads())
+simobs(theopmodel_fo_a, theopp, param, ensemblealg = EnsembleDistributed())
+simobs(theopmodel_fo_s, theopp, param, ensemblealg = EnsembleDistributed())
