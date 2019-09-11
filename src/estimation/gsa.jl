@@ -1,4 +1,7 @@
-function DiffEqSensitivity.gsa(m::PumasModel,subject::Subject,params::NamedTuple,method::DiffEqSensitivity.GSAMethod,vars = [:dv],p_range=[[0.0,1.0] for i in 1:length(TransformVariables.inverse(toidentitytransform(m.param),params))],args...;kwargs...)
+function DiffEqSensitivity.gsa(m::PumasModel,subject::Subject,params::NamedTuple,method::DiffEqSensitivity.GSAMethod,vars = [:dv],p_range_low=NamedTuple{keys(params)}([par.*0.05 for par in values(params)]),p_range_high=NamedTuple{keys(params)}([par.*1.95 for par in values(params)]),args...; kwargs...)
+    vlowparam = TransformVariables.inverse(toidentitytransform(m.param),p_range_low)
+    vhighparam = TransformVariables.inverse(toidentitytransform(m.param),p_range_high)
+    p_range = [[vlowparam[i],vhighparam[i]] for i in 1:length(vlowparam)]
     trf_ident = toidentitytransform(m.param)
     function f(p)
         param = TransformVariables.transform(trf_ident,p)
@@ -8,7 +11,10 @@ function DiffEqSensitivity.gsa(m::PumasModel,subject::Subject,params::NamedTuple
     DiffEqSensitivity.gsa(f,p_range,method)
 end
 
-function DiffEqSensitivity.gsa(m::PumasModel,population::Population,params::NamedTuple,method::DiffEqSensitivity.GSAMethod,vars = [:dv],p_range=[[0.0,1.0] for i in 1:length(TransformVariables.inverse(toidentitytransform(m.param),params))],args...; kwargs...)
+function DiffEqSensitivity.gsa(m::PumasModel,population::Population,params::NamedTuple,method::DiffEqSensitivity.GSAMethod,vars = [:dv],p_range_low=NamedTuple{keys(params)}([par.*0.05 for par in values(params)]),p_range_high=NamedTuple{keys(params)}([par.*1.95 for par in values(params)]),args...; kwargs...)
+    vlowparam = TransformVariables.inverse(toidentitytransform(m.param),p_range_low)
+    vhighparam = TransformVariables.inverse(toidentitytransform(m.param),p_range_high)
+    p_range = [[vlowparam[i],vhighparam[i]] for i in 1:length(vlowparam)]
     trf_ident = toidentitytransform(m.param)
     function f(p)
         param = TransformVariables.transform(trf_ident,p)
