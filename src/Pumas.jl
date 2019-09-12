@@ -4,10 +4,13 @@ using DiffEqDiffTools, Reexport, StatsBase,
       StaticArrays, Distributed, LabelledArrays, GLM,
       TreeViews, CSV, ForwardDiff, DiffResults, Optim, PDMats,
       Missings, RecipesBase, StructArrays, RecursiveArrayTools, HCubature,
-      Statistics
-using  AdvancedHMC, MCMCChains
+      Statistics, DiffEqSensitivity
+using AdvancedHMC: DiagEuclideanMetric, Hamiltonian, NUTS, Leapfrog, find_good_eps, StanHMCAdaptor, Preconditioner, NesterovDualAveraging
+using MCMCChains: Chains
 
-import DataInterpolations, Loess
+import DiffResults: DiffResult
+
+import DataInterpolations
 
 @reexport using OrdinaryDiffEq, Unitful
 @reexport using Distributions, DataFrames
@@ -34,6 +37,7 @@ include("estimation/bayes.jl")
 include("estimation/diagnostics.jl")
 include("estimation/vpc.jl")
 include("estimation/show.jl")
+include("estimation/gsa.jl")
 
 include("analytical_solutions/standard_models.jl")
 include("analytical_solutions/analytical_problem.jl")
@@ -62,5 +66,7 @@ export @model, @nca, @tvcov
 export fit, stderror, vcov, aic, bic, deviance, informationmatrix
 export infer, inspect
 export vpc, vpc_obs
-export mean, std, var
+export gsa
+export mean, std, var, coef
+
 end # module

@@ -1,12 +1,12 @@
 function StatsBase.residuals(fpm::FittedPumasModel)
   # Return the residuals
-  return [residuals(fpm.model, subject, fpm.param, vrandeffs, args...; kwargs...) for (subject, vrandeffs) in zip(fpm.data, fpm.vvrandeffs)]
+  return [residuals(fpm.model, subject, coef(fpm), vrandeffs, args...; kwargs...) for (subject, vrandeffs) in zip(fpm.data, fpm.vvrandeffs)]
 end
 function StatsBase.residuals(model::PumasModel, subject::Subject, param::NamedTuple, vrandeffs::AbstractArray, args...; kwargs...)
   rtrf = totransform(model.random(param))
   randeffs = TransformVariables.transform(rtrf, vrandeffs)
   # Calculated the dependent variable distribution objects
-  dist = derived_dist(model, subject, param, randeffs, args...; kwargs...)
+  dist = _derived(model, subject, param, randeffs, args...; kwargs...)
   # Return the residuals
   return residuals(subject, dist)
 end
@@ -53,7 +53,7 @@ function wresiduals(fpm::FittedPumasModel, approx::LikelihoodApproximation=fpm.a
     vvrandeffsorth = fpm.vvrandeffsorth
   else
     # re-estimate under approx
-    vvrandeffsorth = [_orth_empirical_bayes(fpm.model, subject, fpm.param, approx, fpm.args...; fpm.kwargs...) for subject in subjects]
+    vvrandeffsorth = [_orth_empirical_bayes(fpm.model, subject, coef(fpm), approx, fpm.args...; fpm.kwargs...) for subject in subjects]
   end
   [wresiduals(fpm, subjects[i], vvrandeffsorth[i], approx, fpm.args...; nsim=nsim, fpm.kwargs...) for i = 1:length(subjects)]
 end
@@ -61,12 +61,12 @@ function wresiduals(fpm::FittedPumasModel, subject::Subject, randeffs, approx::L
   is_sim = nsim == nothing
   if nsim == nothing
     approx = approx
-    wres = wresiduals(fpm.model, subject, fpm.param, randeffs, approx, args...; kwargs...)
-    iwres = iwresiduals(fpm.model, subject, fpm.param, randeffs, approx, args...; kwargs...)
+    wres = wresiduals(fpm.model, subject, coef(fpm), randeffs, approx, args...; kwargs...)
+    iwres = iwresiduals(fpm.model, subject, coef(fpm), randeffs, approx, args...; kwargs...)
   else
     approx = nothing
     wres = nothing
-    iwres = eiwres(fpm.model, subject, fpm.param, nsim)
+    iwres = eiwres(fpm.model, subject, coef(fpm), nsim)
   end
 
   SubjectResidual(wres, iwres, subject, approx)
@@ -82,6 +82,16 @@ function DataFrames.DataFrame(vresid::Vector{<:SubjectResidual}; include_covaria
 
   df
 end
+
+"""
+    restype(approx)
+
+Returns the residual type for the given approximation method.
+Can be one of [`FO`](@ref), [`FOCE`](@ref), or [`FOCEI`](@ref).
+"""
+restype(::FO) = :wres
+restype(::FOCE) = :cwres
+restype(::FOCEI) = :cwresi
 
 function wresiduals(model::PumasModel, subject::Subject, param::NamedTuple, randeffs, approx::FO, args...; kwargs...)
   wres(model, subject, param, randeffs, args...; kwargs...)
@@ -122,12 +132,11 @@ function wres(m::PumasModel,
 
   randeffstransform = totransform(m.random(param))
   randeffs = TransformVariables.transform(randeffstransform, vrandeffsorth)
-  dist = derived_dist(m, subject, param, randeffs)
+  dist = _derived(m, subject, param, randeffs)
   F = ForwardDiff.jacobian(
     _vrandeffs -> begin
       _randeffs = TransformVariables.transform(randeffstransform, _vrandeffs)
-      # FIXME-DV for multiple
-      return mean.(getfield(derived_dist(m, subject, param, _randeffs), first(dv_names))) # FIXME-DV
+      return mean.(_derived(m, subject, param, _randeffs)[first(dv_names)]) # FIXME-DV for multiple
     end,
     vrandeffsorth
   )
@@ -155,12 +164,12 @@ function cwres(m::PumasModel,
   randeffs0   = TransformVariables.transform(randeffstransform, zero(vrandeffsorth))
   randeffsEBE = TransformVariables.transform(randeffstransform, vrandeffsorth)
 
-  dist0   = derived_dist(m, subject, param, randeffs0)
-  distEBE = derived_dist(m, subject, param, randeffsEBE)
+  dist0   = _derived(m, subject, param, randeffs0)
+  distEBE = _derived(m, subject, param, randeffsEBE)
   F = ForwardDiff.jacobian(
     _vrandeffs -> begin
       _randeffs = TransformVariables.transform(randeffstransform, _vrandeffs)
-      return mean.(derived_dist(m, subject, param, _randeffs).dv)
+      return mean.(_derived(m, subject, param, _randeffs).dv)
     end,
     vrandeffsorth
   )
@@ -187,11 +196,11 @@ function cwresi(m::PumasModel,
 
   randeffstransform = totransform(m.random(param))
   randeffs = TransformVariables.transform(randeffstransform, vrandeffsorth)
-  dist = derived_dist(m, subject, param, randeffs)
+  dist = _derived(m, subject, param, randeffs)
   F = ForwardDiff.jacobian(
     _vrandeffs -> begin
       _randeffs = TransformVariables.transform(randeffstransform, _vrandeffs)
-      return mean.(derived_dist(m, subject, param, _randeffs).dv)
+      return mean.(_derived(m, subject, param, _randeffs).dv)
     end,
     vrandeffsorth
   )
@@ -216,7 +225,7 @@ function pred(m::PumasModel,
   end
 
   randeffs = TransformVariables.transform(totransform(m.random(param)), vrandeffsorth)
-  dist = derived_dist(m, subject, param, randeffs)
+  dist = _derived(m, subject, param, randeffs)
   return mean.(dist.dv)
 end
 
@@ -239,11 +248,11 @@ function cpred(m::PumasModel,
 
   randeffstransform = totransform(m.random(param))
   randeffs = TransformVariables.transform(randeffstransform, vrandeffsorth)
-  dist = derived_dist(m, subject, param, randeffs)
+  dist = _derived(m, subject, param, randeffs)
   F = ForwardDiff.jacobian(
     _vrandeffs -> begin
       _randeffs = TransformVariables.transform(randeffstransform, _vrandeffs)
-      mean.(derived_dist(m, subject, param, _randeffs).dv)
+      mean.(_derived(m, subject, param, _randeffs).dv)
     end,
     vrandeffsorth
   )
@@ -268,11 +277,11 @@ function cpredi(m::PumasModel,
 
   randeffstransform = totransform(m.random(param))
   randeffs = TransformVariables.transform(randeffstransform, vrandeffsorth)
-  dist = derived_dist(m, subject, param, randeffs)
+  dist = _derived(m, subject, param, randeffs)
   F = ForwardDiff.jacobian(
     _vrandeffs -> begin
       _randeffs = TransformVariables.transform(randeffstransform, _vrandeffs)
-      mean.(derived_dist(m, subject, param, _randeffs).dv)
+      mean.(_derived(m, subject, param, _randeffs).dv)
     end,
     vrandeffsorth
   )
@@ -310,8 +319,8 @@ function iwres(m::PumasModel,
    end
 
   randeffs = TransformVariables.transform(totransform(m.random(param)), vrandeffsorth)
-  dist = derived_dist(m, subject, param, randeffs)
-  return residuals(subject, dist) ./ std.(getfield(dist, first(dv_names))) # FIXME-DV
+  dist = _derived(m, subject, param, randeffs)
+  return residuals(subject, dist) ./ std.(getfield(dist, first(dv_names)))
 end
 
 """
@@ -333,8 +342,8 @@ function icwres(m::PumasModel,
   randeffstransform = totransform(m.random(param))
   randeffs0   = TransformVariables.transform(randeffstransform, zero(vrandeffsorth))
   randeffsEBE = TransformVariables.transform(randeffstransform, vrandeffsorth)
-  dist0 = derived_dist(m, subject, param, randeffs0)
-  dist = derived_dist(m, subject, param, randeffsEBE)
+  dist0 = _derived(m, subject, param, randeffs0)
+  dist = _derived(m, subject, param, randeffsEBE)
   return residuals(subject, dist) ./ std.(dist0.dv)
 end
 
@@ -355,8 +364,8 @@ function icwresi(m::PumasModel,
   end
 
   randeffs = TransformVariables.transform(totransform(m.random(param)), vrandeffsorth)
-  dist = derived_dist(m, subject, param, randeffs)
-  return residuals(subject, dist) ./ std.(getfield(dist, first(dv_names))) #FIXME-DV
+  dist = _derived(m, subject, param, randeffs)
+  return residuals(subject, dist) ./ std.(dist[first(dv_names)]) # FIXME-DV for multiple
 end
 
 """
@@ -370,15 +379,14 @@ function eiwres(m::PumasModel,
                 nsim::Integer,
                 args...;
                 kwargs...)
-  dv_names = keys(subject.observations)
-  yi = getfield(subject.observations, first(dv_names)) #FIXME-DV
-  dist = derived_dist(m, subject, param, sample_randeffs(m, param), args...; kwargs...)
-  dist_dv = getfield(dist, first(dv_names))
-  sims_sum = (yi .- mean.(dist_dv))./std.(dist_dv)
+  dv_names = keys(subject.observations) # FIXME-DV for multiple
+  dv_name = first(dv_names)
+  yi = subject.observations[dv_name]
+  dist = _derived(m, subject, param, sample_randeffs(m, param), args...; kwargs...)
+  sims_sum = (yi .- mean.(dist[dv_name]))./std.(dist[dv_name])
   for i in 2:nsim
-    dist = derived_dist(m, subject, param, sample_randeffs(m, param), args...; kwargs...)
-    dist_dv = getfield(dist, first(dv_names))
-    sims_sum .+= (yi .- mean.(dist_dv))./std.(dist_dv)
+    dist = _derived(m, subject, param, sample_randeffs(m, param), args...; kwargs...)
+    sims_sum .+= (yi .- mean.(dist[dv_name]))./std.(dist[dv_name])
   end
   return sims_sum ./ nsim
 end
@@ -395,7 +403,7 @@ function ipred(m::PumasModel,
   end
 
   randeffs = TransformVariables.transform(totransform(m.random(param)), vrandeffsorth)
-  dist = derived_dist(m, subject, param, randeffs, args...; kwargs...)
+  dist = _derived(m, subject, param, randeffs, args...; kwargs...)
   return mean.(getfield(dist, first(dv_names)))
 end
 
@@ -411,7 +419,7 @@ function cipred(m::PumasModel,
   end
 
   randeffs = TransformVariables.transform(totransform(m.random(param)), vrandeffsorth)
-  dist = derived_dist(m, subject, param, randeffs, args...; kwargs...)
+  dist = _derived(m, subject, param, randeffs, args...; kwargs...)
   return mean.(dist[first(dv_names)])
 end
 
@@ -427,7 +435,7 @@ function cipredi(m::PumasModel,
   end
 
   randeffs = TransformVariables.transform(totransform(m.random(param)), vrandeffsorth)
-  dist = derived_dist(m, subject, param, randeffs, args...; kwargs...)
+  dist = _derived(m, subject, param, randeffs, args...; kwargs...)
   return mean.(dist.dv)
 end
 
@@ -530,9 +538,9 @@ function StatsBase.predict(fpm::FittedPumasModel, approx=fpm.approx; nsim=nothin
     vvrandeffsorth = fpm.vvrandeffsorth
   else
     # re-estimate under approx
-    vvrandeffsorth = [_orth_empirical_bayes(fpm.model, subject, fpm.param, approx) for subject in subjects]
+    vvrandeffsorth = [_orth_empirical_bayes(fpm.model, subject, coef(fpm), approx) for subject in subjects]
   end
-  [predict(fpm.model, subjects[i], fpm.param, approx, vvrandeffsorth[i]) for i = 1:length(subjects)]
+  [predict(fpm.model, subjects[i], coef(fpm), approx, vvrandeffsorth[i]) for i = 1:length(subjects)]
 end
 
 function _predict(model, subject, param, approx::FO, vvrandeffsorth)
@@ -557,7 +565,7 @@ function _ipredict(model, subject, param, approx::Union{FOCEI, LaplaceI}, vvrand
 end
 
 function epredict(fpm, subject, vvrandeffsorth, nsim::Integer)
-  epred(fpm.model, subjects, fpm.param, TransformVariables.transform(totransform(fpm.model.random.fpm.param), vvrandeffsorth), nsim)
+  epred(fpm.model, subjects, coef(fpm), TransformVariables.transform(totransform(fpm.model.random.coef(fpm)), vvrandeffsorth), nsim)
 end
 
 function DataFrames.DataFrame(vpred::Vector{<:SubjectPrediction}; include_covariates=true)
@@ -579,14 +587,14 @@ end
 function empirical_bayes(fpm::FittedPumasModel, approx=fpm.approx)
   subjects = fpm.data
 
-  trf = totransform(fpm.model.random(fpm.param))
+  trf = totransform(fpm.model.random(coef(fpm)))
 
   if approx == fpm.approx
     ebes = fpm.vvrandeffsorth
     return [SubjectEBES(TransformVariables.transform(trf, e), s, approx) for (e, s) in zip(ebes, subjects)]
   else
     # re-estimate under approx
-    return [SubjectEBES(TransformVariables.transform(trf, _orth_empirical_bayes(fpm.model, subject, fpm.param, approx), subject, approx)) for subject in subjects]
+    return [SubjectEBES(TransformVariables.transform(trf, _orth_empirical_bayes(fpm.model, subject, coef(fpm), approx), subject, approx)) for subject in subjects]
   end
 end
 
@@ -649,14 +657,17 @@ Must return a `Vector{Number}`.
 _objectivefunctionvalues(f::FittedPumasModel) = getproperty.(f.optim.trace, :value)
 
 """
-    _convergencedata(obj)
+    _convergencedata(obj; metakey="x")
 
 Returns the "timeseries" of optimization as a matrix, with series as columns.
 !!! warn
     This must return parameter data in the same order that [`_paramnames`](@ref)
     returns names.
 """
-function _convergencedata(f::FittedPumasModel)
+function _convergencedata(f::FittedPumasModel; metakey="x")
+
+  metakey != "x" && return transpose(hcat(getindex.(getproperty.(f.optim.trace, :metadata), metakey)...))
+
   trf  = totransform(f.model.param)         # get the transform which has been applied to the params
   itrf = toidentitytransform(f.model.param) # invert the param transform
 
@@ -669,7 +680,7 @@ function _convergencedata(f::FittedPumasModel)
                           getproperty.(                 # get the metadata of each trace element
                               f.optim.trace, :metadata  # getproperty expects a `Symbol`
                               ),
-                          "x"                           # property x is a key for a `Dict` - hence getindex
+                          metakey                           # property x is a key for a `Dict` - hence getindex
                           )
                       )
                   )...                                  # splat to get a matrix out
@@ -687,68 +698,19 @@ Returns the names of the parameters which convergence is being checked for.
 """
 function _paramnames(f::FittedPumasModel)
   paramnames = [] # empty array, will fill later
-  for (paramname, paramval) in pairs(f.param) # iterate through the parameters
+  for (paramname, paramval) in pairs(coef(f)) # iterate through the parameters
     # decompose all parameters (matrices, etc.) into scalars and name them appropriately
     _push_varinfo!(paramnames, [], nothing, nothing, paramname, paramval, nothing, nothing)
   end
   return paramnames
 end
 
-########################################
-#             Type recipe              #
-########################################
-
-@recipe function f(arg::FittedPumasModel; params = Union{Symbol, String}[])
-
-    names = _paramnames(arg)      # a wrapper function around some logic to make use of multiple dispatch
-
-    str_params = string.(params)
-
-    data  = _convergencedata(arg) # again, a wrapper function.
-
-    inds = []
-
-    !isempty(params) && (inds = findall(x -> !(x in str_params), names))
-
-    finalnames = deleteat!(names, inds)
-
-    finaldata = @view(data[(x -> !(x in inds)).(axes(data)[1]), :])
-
-    layout --> good_layout(length(finalnames) + 1)  # good_layout simply overrides the Plots layouter for n <= 4
-
-    legend := :none # clutters up the plot too much
-
-    # also plot the observed function value from Optim
-    @series begin
-        title := "Objective function"
-        subplot := length(names) + 1
-        link := :x # link the x-axes, there should be no difference
-
-        (_objectivefunctionvalues(arg)) # the observed values
-    end
-
-    # Iterate through three variables simultaneously:
-    # - the index of the data (to assign to the subplot),
-    # - the name of the parameter (as determined by `_paramnames`)
-    # - the convergence data to plot as series vectors
-    for (i, name, trace) in zip(eachindex(names), names, eachslice(data; dims = 2))
-        @series begin
-            title := name
-            subplot := i
-            link := :x
-            # @show name i trace # debug here
-            trace # return series data to be plotted.  We let the user specify the seriestype.
-        end
-    end
-
-    primary := false # do not add a legend entry here, do other nice things that Plots does as well
-end
-
 # This will use default args and kwargs!!
-findinfluential(fpm::FittedPumasModel) = findinfluential(fpm.model, fpm.data, fpm.param, fpm.approx, fpm.args...; fpm.kwargs...)
+findinfluential(fpm::FittedPumasModel) = findinfluential(fpm.model, fpm.data, coef(fpm), fpm.approx, fpm.args...; fpm.kwargs...)
 function findinfluential(m::PumasModel,
                          data::Population,
                          param::NamedTuple,
+
                          approx::LikelihoodApproximation,
                          args...;
                          k=5, kwargs...)

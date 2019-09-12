@@ -44,7 +44,7 @@ param = init_param(mdsl2)
 @test ϵshrinkage(mdsl2, theopp_nlme, param, Pumas.FOCEI()) ≈ 0.09091845 rtol = 1e-6
 ϵshrinkage(mdsl2,theopp_nlme, param, Pumas.FOCE(),
     [Pumas._orth_empirical_bayes(mdsl2, subject, param, Pumas.FOCEI()) for subject in theopp_nlme])
-param = fit(mdsl2, theopp_nlme, param, Pumas.FOCE()).param
+param = coef(fit(mdsl2, theopp_nlme, param, Pumas.FOCE()))
 @test ϵshrinkage(mdsl2, theopp_nlme, param, Pumas.FOCEI(),
     [Pumas._orth_empirical_bayes(mdsl2, subject, param, Pumas.FOCE()) for subject in theopp_nlme]) ≈ 0.4400298 rtol = 1e-3
 @test ϵshrinkage(mdsl2, theopp_nlme, param, Pumas.FOCE()) ≈ 0.1268684 rtol = 1e-3

@@ -297,7 +297,9 @@ function DataFrames.DataFrame(subject::Subject; include_covariates=true, include
 
   # Generate the name for the dependent variable in a manner consistent with
   # multiple dvs etc
-  if !isnothing(subject.time)
+  if isnothing(subject.time)
+    df_events = hcat(DataFrame(id = fill(subject.id, length(df_events.evid))), df_events)
+  else
     df = DataFrame(id = fill(subject.id, length(subject.time)), time=subject.time)
     df[!, :evid] .= 0
     # Only include the dv columns if include_dvs is specified and there are

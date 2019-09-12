@@ -77,7 +77,7 @@ using Pumas, LinearAlgebra, Test, CSV
 
     @testset "FO estimation of $dyntype model" for dyntype in ("analytical", "solver")
       result = fit(mdl_proportional[dyntype], data, param_proportional, Pumas.FO())
-      param = result.param
+      param = coef(result)
 
       @test param.θ      ≈ [3.5592e-01, 8.5888e+00] rtol=1e-3
       @test param.Ω.diag ≈ [3.0186e-01, 4.2789e-01] rtol=1e-3
@@ -86,7 +86,7 @@ using Pumas, LinearAlgebra, Test, CSV
 
     @testset "FOCE estimation of $dyntype model" for dyntype in ("analytical", "solver")
       result = fit(mdl_proportional[dyntype], data, param_proportional, Pumas.FOCE())
-      param = result.param
+      param = coef(result)
 
       @test param.θ      ≈ [3.19e-01, 9.22e+00] rtol=1e-3
       @test param.Ω.diag ≈ [2.28e-01, 2.72e-01] rtol=1e-3
@@ -95,7 +95,7 @@ using Pumas, LinearAlgebra, Test, CSV
 
     @testset "FOCEI estimation of $dyntype model" for dyntype in ("analytical", "solver")
       result = fit(mdl_proportional[dyntype], data, param_proportional, Pumas.FOCEI())
-      param = result.param
+      param = coef(result)
 
       @test param.θ      ≈ [3.91e-01, 7.56e+00] rtol=1e-3
       @test param.Ω.diag ≈ [1.60e-01, 1.68e-01] rtol=3e-3
@@ -106,7 +106,7 @@ using Pumas, LinearAlgebra, Test, CSV
       # FIXME! This should also work for solver based version
       if dyntype == "analytical"
         result = fit(mdl_proportional[dyntype], data, param_proportional, Pumas.Laplace())
-        param = result.param
+        param = coef(result)
 
         @test param.θ      ≈ [3.1616e-01, 9.2127e+00] rtol=1e-3
         @test param.Ω.diag ≈ [2.2490e-01, 2.7376e-01] rtol=3e-3
@@ -118,7 +118,7 @@ using Pumas, LinearAlgebra, Test, CSV
 
     @testset "LaplaceI estimation of $dyntype model" for dyntype in ("analytical", "solver")
       result = fit(mdl_proportional[dyntype], data, param_proportional, Pumas.LaplaceI())
-      param = result.param
+      param = coef(result)
 
       @test param.θ      ≈ [3.7400e-01, 7.5009e+00] rtol=1e-3
       @test param.Ω.diag ≈ [1.5123e-01, 1.6798e-01] rtol=3e-3
@@ -195,7 +195,7 @@ using Pumas, LinearAlgebra, Test, CSV
 
     @testset "FO estimation of $dyntype model" for dyntype in ("analytical", "solver")
       result = fit(mdl_proportional_additive[dyntype], data, param_proportional_additive, Pumas.FO())
-      param = result.param
+      param = coef(result)
 
       @test param.θ      ≈ [4.2224e-01, 6.5691e+00] rtol=1e-3
       @test param.Ω.diag ≈ [2.1552e-01, 2.2674e-01] rtol=5e-3
@@ -205,7 +205,7 @@ using Pumas, LinearAlgebra, Test, CSV
 
     @testset "FOCE estimation of $dyntype model" for dyntype in ("analytical", "solver")
       result = fit(mdl_proportional_additive[dyntype], data, param_proportional_additive, Pumas.FOCE())
-      param = result.param
+      param = coef(result)
 
       @test param.θ      ≈ [4.12e-01, 7.20e+00] rtol=1e-3
       @test param.Ω.diag ≈ [1.73e-01, 2.02e-01] rtol=5e-3
@@ -215,7 +215,7 @@ using Pumas, LinearAlgebra, Test, CSV
 
     @testset "FOCEI estimation of $dyntype model" for dyntype in ("analytical", "solver")
       result = fit(mdl_proportional_additive[dyntype], data, param_proportional_additive, Pumas.FOCEI())
-      param = result.param
+      param = coef(result)
 
       @test param.θ      ≈ [4.17e-01, 7.16e+00] rtol=1e-3
       @test param.Ω.diag ≈ [1.71e-01, 1.98e-01] rtol=5e-3
@@ -225,7 +225,7 @@ using Pumas, LinearAlgebra, Test, CSV
 
     @testset "Laplace estimation of $dyntype model" for dyntype in ("analytical", "solver")
       result = fit(mdl_proportional_additive[dyntype], data, param_proportional_additive, Pumas.Laplace())
-      param = result.param
+      param = coef(result)
 
       @test param.θ      ≈ [4.0791e-01, 7.2004e+00] rtol=1e-3
       @test param.Ω.diag ≈ [1.7321e-01, 2.0335e-01] rtol=5e-3
@@ -235,7 +235,7 @@ using Pumas, LinearAlgebra, Test, CSV
 
     @testset "LaplaceI estimation of $dyntype model" for dyntype in ("analytical", "solver")
       result = fit(mdl_proportional_additive[dyntype], data, param_proportional_additive, Pumas.LaplaceI())
-      param = result.param
+      param = coef(result)
 
       @test param.θ      ≈ [4.1156e-01, 7.1442e+00] rtol=1e-3
       @test param.Ω.diag ≈ [1.7226e-01, 1.9856e-01] rtol=5e-3

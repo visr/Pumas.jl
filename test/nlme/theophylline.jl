@@ -98,7 +98,13 @@ end
 
   o = fit(theopmodel_analytical_fo, theopp, param, Pumas.FO())
 
-  o_estimates = o.param
+  ofix1 = fit(theopmodel_analytical_fo, theopp, param, Pumas.FO(); constantcoef=(θ₁=0.4,))
+  ofix2 = fit(theopmodel_analytical_fo, theopp, param, Pumas.FO(); constantcoef=(σ_add=0.1,))
+
+  @test coef(ofix1).θ₁ == 0.4
+  @test coef(ofix2).σ_add == 0.1
+
+  o_estimates = coef(o)
   o_stderror  = stderror(o)
 
   o_infer = infer(o)
@@ -313,7 +319,7 @@ end
 
   o = fit(theopmodel_solver_fo, theopp, param, Pumas.FO())
 
-  o_estimates = o.param
+  o_estimates = coef(o)
   o_stderror  = stderror(o)
 
   o_infer = infer(o)
@@ -452,7 +458,7 @@ end
 
   o = fit(theopmodel_foce, theopp, param, Pumas.FOCE())
 
-  o_estimates = o.param
+  o_estimates = coef(o)
   o_stderror  = stderror(o)
 
   @test deviance(o) ≈ 121.89849119366599
@@ -576,7 +582,7 @@ end
 
   o = fit(theopmodel_focei, theopp, param, Pumas.FOCEI())
 
-  o_estimates = o.param
+  o_estimates = coef(o)
   o_stderror  = stderror(o)
 
   o_infer = infer(o)
@@ -739,7 +745,7 @@ end
 
   o = fit(theopmodel_foce, theopp, param, Pumas.FOCE())
 
-  o_estimates = o.param
+  o_estimates = coef(o)
 
   @test deviance(o) ≈ 102.871158475488 rtol=1e-5
 
@@ -879,7 +885,7 @@ end
   @testset "Test optimization" begin
     o = fit(theopmodel_laplace, theopp, param, Pumas.Laplace())
 
-    o_estimates = o.param
+    o_estimates = coef(o)
     o_stderror  = stderror(o)
 
     o_infer = infer(o)
@@ -1022,7 +1028,7 @@ end
   @testset "Test optimization" begin
     o = fit(theopmodel_laplacei, theopp, param, Pumas.LaplaceI())
 
-    o_estimates = o.param
+    o_estimates = coef(o)
     o_stderror  = stderror(o)
 
     @test deviance(o) ≈ 116.97275684239327 rtol=1e-5

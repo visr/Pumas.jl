@@ -1,7 +1,7 @@
 using Pumas, Test, CSV, Random, Distributions, LinearAlgebra, TransformVariables
 
 if haskey(ENV,"BAYES_N")
-    nsamples = ENV["BAYES_N"]
+    nsamples = parse(Int, ENV["BAYES_N"])
 else
     nsamples = 10_000
 end
@@ -76,35 +76,31 @@ theopp = read_pumas(example_data("event_data/THEOPP"),cvs = [:WT,:SEX])
   end
 
   Random.seed!(1)
-  try
-    b = Pumas.fit(theopmodel_bayes, theopp, Pumas.BayesMCMC(),
+  b = Pumas.fit(theopmodel_bayes, theopp, Pumas.BayesMCMC(),
                   nsamples = nsamples)
 
-    m = Pumas.param_mean(b)
+  m = Pumas.param_mean(b)
 
-    if nsamples >= 10_000
-      @test m.θ[1] ≈ 1.72E+00 rtol=0.1
-      @test m.θ[2] ≈ 8.57E-02 rtol=0.1
-      @test m.θ[3] ≈ 3.90E-02 rtol=0.1
-      @test m.θ[4] ≈ 1.73E+00 rtol=0.1
-      @test m.θ[5] ≈ 4.32E-01 rtol=0.1
-      @test_broken m.Ω[1] ≈ 1.09E+00 rtol=0.1
-      @test m.σ ≈ 1.24E+00 rtol=0.1
-    end
+  if nsamples >= 10_000
+    @test m.θ[1] ≈ 1.72E+00 rtol=0.1
+    @test m.θ[2] ≈ 8.57E-02 rtol=0.1
+    @test m.θ[3] ≈ 3.90E-02 rtol=0.1
+    @test m.θ[4] ≈ 1.73E+00 rtol=0.1
+    @test m.θ[5] ≈ 4.32E-01 rtol=0.1
+    @test_broken m.Ω[1] ≈ 1.09E+00 rtol=0.1
+    @test m.σ ≈ 1.24E+00 rtol=0.1
+  end
 
-    s = Pumas.param_std(b)
+  s = Pumas.param_std(b)
 
-    if nsamples >= 10_000
-      @test s.θ[1] ≈ 4.62E-01 rtol=0.2
-      @test s.θ[2] ≈ 6.92E-03 rtol=0.1
-      @test s.θ[3] ≈ 2.16E-03 rtol=0.1
-      @test s.θ[4] ≈ 4.74E-01 rtol=0.2
-      @test s.θ[5] ≈ 1.54E-01 rtol=0.1
-      @test_broken s.Ω[1] ≈ 7.00E-01 rtol=0.1
-      @test s.σ ≈  1.68E-01 rtol=0.1
-    end
-  catch e
-    show(e)
+  if nsamples >= 10_000
+    @test s.θ[1] ≈ 4.62E-01 rtol=0.2
+    @test s.θ[2] ≈ 6.92E-03 rtol=0.1
+    @test s.θ[3] ≈ 2.16E-03 rtol=0.1
+    @test s.θ[4] ≈ 4.74E-01 rtol=0.2
+    @test s.θ[5] ≈ 1.54E-01 rtol=0.1
+    @test_broken s.Ω[1] ≈ 7.00E-01 rtol=0.1
+    @test s.σ ≈  1.68E-01 rtol=0.1
   end
 end
 
@@ -180,35 +176,30 @@ end
   end
 
   Random.seed!(1)
-  try
-
-    b = Pumas.fit(theopmodel_bayes2, theopp, Pumas.BayesMCMC(),
+  b = Pumas.fit(theopmodel_bayes2, theopp, Pumas.BayesMCMC(),
                 nsamples = nsamples, reltol = 1e-6, abstol = 1e-6)
 
-    m = Pumas.param_mean(b)
+  m = Pumas.param_mean(b)
 
-    if nsamples >= 10_000
-      @test m.θ[1] ≈ 1.72E+00 rtol=0.1
-      @test m.θ[2] ≈ 8.57E-02 rtol=0.1
-      @test m.θ[3] ≈ 3.90E-02 rtol=0.1
-      @test m.θ[4] ≈ 1.73E+00 rtol=0.1
-      @test m.θ[5] ≈ 4.32E-01 rtol=0.1
-      @test_broken m.Ω[1] ≈ 1.09E+00 rtol=0.1
-      @test m.σ ≈ 1.24E+00 rtol=0.1
-    end
+  if nsamples >= 10_000
+    @test m.θ[1] ≈ 1.72E+00 rtol=0.1
+    @test m.θ[2] ≈ 8.57E-02 rtol=0.1
+    @test m.θ[3] ≈ 3.90E-02 rtol=0.1
+    @test m.θ[4] ≈ 1.73E+00 rtol=0.1
+    @test m.θ[5] ≈ 4.32E-01 rtol=0.1
+    @test_broken m.Ω[1] ≈ 1.09E+00 rtol=0.1
+    @test m.σ ≈ 1.24E+00 rtol=0.1
+  end
 
-    s = Pumas.param_std(b)
+  s = Pumas.param_std(b)
 
-    if nsamples >= 10_000
-      @test s.θ[1] ≈ 4.62E-01 rtol=0.2
-      @test s.θ[2] ≈ 6.92E-03 rtol=0.1
-      @test s.θ[3] ≈ 2.16E-03 rtol=0.1
-      @test s.θ[4] ≈ 4.74E-01 rtol=0.2
-      @test s.θ[5] ≈ 1.54E-01 rtol=0.1
-      @test_broken s.Ω[1] ≈ 7.00E-01 rtol=0.1
-      @test s.σ ≈  1.68E-01 rtol=0.1
-    end
-  catch e
-    show(e)
+  if nsamples >= 10_000
+    @test s.θ[1] ≈ 4.62E-01 rtol=0.2
+    @test s.θ[2] ≈ 6.92E-03 rtol=0.1
+    @test s.θ[3] ≈ 2.16E-03 rtol=0.1
+    @test s.θ[4] ≈ 4.74E-01 rtol=0.2
+    @test s.θ[5] ≈ 1.54E-01 rtol=0.1
+    @test_broken s.Ω[1] ≈ 7.00E-01 rtol=0.1
+    @test s.σ ≈  1.68E-01 rtol=0.1
   end
 end

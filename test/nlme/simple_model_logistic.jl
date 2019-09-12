@@ -36,7 +36,7 @@ using Pumas, Test, StatsFuns
         approx in (Pumas.FO(), Pumas.FOCE(), Pumas.FOCEI(), Pumas.Laplace(), Pumas.LaplaceI())
 
         if approx == Pumas.LaplaceI()
-            param = fit(mdsl, data, param, approx).param
+            param = coef(fit(mdsl, data, param, approx))
 
             # Test values computed with MixedModels.jl
             @test param.θ₁                ≈ -1.3085393956990727 rtol=1e-3

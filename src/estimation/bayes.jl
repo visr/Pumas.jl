@@ -123,38 +123,63 @@ end
 
 struct BayesMCMC <: LikelihoodApproximation end
 
-# function Distributions.fit(model::PumasModel, data::Population, ::BayesMCMC,
-#                            args...; nsamples=5000, kwargs...)
-#   bayes = BayesLogDensity(model, data, args...;kwargs...)
-#   chain,tuned = NUTS_init_tune_mcmc(bayes, nsamples)
-#   BayesMCMCResults(bayes, chain, tuned)
-# end
-
-function Distributions.fit(model::PumasModel, data::Population, ::BayesMCMC, θ_init=init_param(model),
-  args...; nadapts=2000,nsamples=10000, kwargs...)
-  trf = totransform(model.param)
+function Distributions.fit(
+  model::PumasModel,
+  data::Population,
+  ::BayesMCMC,
+  θ_init::NamedTuple=init_param(model),
+  args...;
+  nadapts::Integer=2000,
+  nsamples::Integer=10000,
+  kwargs...
+)
+  # Extract parameter transformations with and without bounds
+  trf       = totransform(model.param)
   trf_ident = toidentitytransform(model.param)
+
+  # Transform NamedTuple of initial parameters to a Vector
   vparam = Pumas.TransformVariables.inverse(trf, θ_init)
-  bayes = BayesLogDensity(model, data, args...;kwargs...)
+
+  # Create BayesLogDensity objecet from Pumas model and data
+  bayes = BayesLogDensity(model, data, args...; kwargs...)
+
+  # Augment parameter Vector with vector of random effects
   vparam_aug = [vparam; zeros(length(data)*bayes.dim_rfx)]
+
+  # Create functions for the density and the gradient as functions of just the augmented parameter vector
+  # (i.e. closing over the BayesLogDensity object)
+  l(θ)    = logdensity(bayes, θ)
   dldθ(θ) = logdensitygrad(bayes, θ)
-  l(θ) = logdensity(bayes, θ)
-  metric = DiagEuclideanMetric(length(vparam_aug))
-  h = Hamiltonian(metric, l, dldθ)
-  prop = AdvancedHMC.NUTS(Leapfrog(find_good_eps(h, vparam_aug)))
+
+  # Set up the NUTS sampler from AdvancedHMC
+  metric  = DiagEuclideanMetric(length(vparam_aug))
+  h       = Hamiltonian(metric, l, dldθ)
+  prop    = NUTS(Leapfrog(find_good_eps(h, vparam_aug)))
   adaptor = StanHMCAdaptor(nadapts, Preconditioner(metric), NesterovDualAveraging(0.8, prop.integrator.ϵ))
+
+  # Run the MCMC sampler
   samples, stats = sample(h, prop, vparam_aug, nsamples, adaptor, nadapts; progress=true)
-  trans = v -> TransformVariables.transform(trf, v)
-  samples_transf = trans.(samples)
+
+  # Construct closure that transforms the parameter vector to a NamedTuple by applying the parameter bounds
+  trans      = v -> TransformVariables.transform(trf, v)
+  # Construct closure that transform the NamedTuple to a Vector without applying the parameter bounds
   transident = v -> TransformVariables.inverse(trf_ident, v)
+
+  # Apply the transformations to the samples
+  samples_transf  = trans.(samples)
   samples_transid = transident.(samples_transf)
+
+  # Construct labels to the parameters
   names = String[]
   vals = []
   for (name,val) in pairs(samples_transf[1])
     _push_varinfo!(names, vals, nothing, nothing, name, val, nothing, nothing)
   end
+
+  # Construct a Chains object for nice printing of the results
   samples_ = Chains(samples_transid, names)
-  BayesMCMCResults(bayes, samples_, stats)
+
+  return BayesMCMCResults(bayes, samples_, stats)
 end
 
 function Distributions.fit(model::PumasModel, data::Population, param::NamedTuple, ::BayesMCMC,

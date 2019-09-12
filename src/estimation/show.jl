@@ -25,7 +25,7 @@ function Base.show(io::IO, mime::MIME"text/plain", fpm::FittedPumasModel)
   # Get all names
   paramnames = []
   paramvals = []
-  for (paramname, paramval) in pairs(fpm.param)
+  for (paramname, paramval) in pairs(coef(fpm))
     _push_varinfo!(paramnames, paramvals, nothing, nothing, paramname, paramval, nothing, nothing)
   end
   getdecimal = x -> findfirst(c -> c=='.', x)
@@ -57,8 +57,8 @@ function Base.show(io::IO, mime::MIME"text/plain", vfpm::Vector{<:FittedPumasMod
   paramvals = []
   paramstds = []
 
-  for (paramname, paramval) in pairs(first(vfpm).param)
-    _paramval = [fpm.param[paramname] for fpm in vfpm]
+  for (paramname, paramval) in pairs(coef(first(vfpm)))
+    _paramval = [coef(fpm)[paramname] for fpm in vfpm]
     parammean = mean(_paramval)
     paramstd = parammean*std(_paramval)/100
     _push_varinfo!(paramnames, paramvals, paramstds, nothing, paramname, parammean, paramstd, nothing)
@@ -145,7 +145,7 @@ function Base.show(io::IO, mime::MIME"text/plain", pmi::FittedPumasModelInferenc
 
   quant = quantile(Normal(), pmi.level + (1.0 - pmi.level)/2)
 
-  for (paramname, paramval) in pairs(fpm.param)
+  for (paramname, paramval) in pairs(coef(fpm))
     std = standard_errors[paramname]
     _push_varinfo!(paramnames, paramvals, paramrse, paramconfint, paramname, paramval, std, quant)
   end

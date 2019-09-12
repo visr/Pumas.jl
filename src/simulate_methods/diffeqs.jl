@@ -1,4 +1,7 @@
-function _solve_diffeq(m::PumasModel, subject::Subject, args...; saveat=Float64[], save_discont=isempty(saveat), continuity=:right, alg=AutoTsit5(Rosenbrock23()), kwargs...)
+function _build_diffeq_problem(m::PumasModel, subject::Subject, args...;
+                               saveat=Float64[],
+                               save_discont= isnothing(saveat) || isempty(saveat),
+                               continuity=:right, kwargs...)
   prob = typeof(m.prob) <: DiffEqBase.AbstractJumpProblem ? m.prob.prob : m.prob
   tspan = prob.tspan
   col = prob.p
@@ -21,18 +24,14 @@ function _solve_diffeq(m::PumasModel, subject::Subject, args...; saveat=Float64[
   tstops,cb = ith_subject_cb(col,subject,Tu0,tspan[1],typeof(prob),saveat,save_discont,continuity)
   Tt = promote_type(numtype(tstops), numtype(tspan))
   tspan = Tt.(tspan)
-  prob.callback != nothing && (cb = CallbackSet(cb, prob.callback))
+  :callback ∈ keys(prob.kwargs) && (cb = CallbackSet(cb, prob.kwargs[:callback]))
 
   # Remake problem of correct type
   new_f = make_function(prob,fd)
 
-  _prob = remake(m.prob; callback=CallbackSet(cb,prob.callback), f=new_f, u0=Tu0, tspan=tspan)
-
-  sol = solve(_prob,alg,args...;
-              saveat = saveat,
-              save_first = tspan[1] ∈ saveat,
-              tstops=tstops,   # extra times that the timestepping algorithm must step to
-              kwargs...)
+  remake(m.prob; f=new_f, u0=Tu0, tspan=tspan, callback=cb, saveat=saveat,
+                 tstops = tstops,
+                 save_first = !isnothing(saveat) && tspan[1] ∈ saveat)
 end
 
 using DiffEqBase: RECOMPILE_BY_DEFAULT
@@ -54,23 +53,8 @@ function build_pkpd_problem(_prob::DiffEqBase.AbstractJumpProblem,set_parameters
                                             _prob.jump_callback,_prob.variable_jumps),tstops
 end
 
-# Have separate dispatches to pass along extra pieces of the problem
-#function problem_final_dispatch(prob::DiffEqBase.ODEProblem,true_f,u0,tspan,p,cb)
-#  ODEProblem{DiffEqBase.isinplace(prob)}(true_f,u0,tspan,p,callback=cb)
-#end
-#
-#function problem_final_dispatch(prob::DiffEqBase.SDEProblem,true_f,u0,tspan,p,cb)
-#  SDEProblem{DiffEqBase.isinplace(prob)}(true_f,prob.g,u0,tspan,p,callback=cb)
-#end
-#
-#function problem_final_dispatch(prob::DiffEqBase.DDEProblem,true_f,u0,tspan,p,cb)
-#  DDEProblem{DiffEqBase.isinplace(prob)}(true_f,prob.h,u0,tspan,prob.p,
-#                   constant_lags = prob.constant_lags,
-#                   dependent_lags = prob.dependent_lags,
-#                   callback=cb)
-#end
-
 function ith_subject_cb(p,datai::Subject,u0,t0,ProbType,saveat,save_discont,continuity)
+  isempty(datai.events) && return Float64[], nothing
   ss_abstol = 1e-12 # TODO: Make an option
   ss_reltol = 1e-12 # TODO: Make an option
   ss_max_iters = 1000
