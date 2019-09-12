@@ -15,6 +15,13 @@ if group == "All" || group == "Core"
     include("core/runtests.jl")
 end
 
+if group == "All" || group == "Parallel"
+    # Do not put into a module because processes are spawned
+    @time @testset "Parallelism Tests" begin
+        include("core/parallel.jl")
+    end
+end
+
 if group == "All" || group == "NCA"
     include("nca/runtests.jl")
 end
