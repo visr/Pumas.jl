@@ -39,6 +39,20 @@ test-core:
   - external
   - pushes
 
+test-parallel:
+  stage: test
+  variables:
+    GROUP: "Parallel"
+  script:
+    - julia -e 'using InteractiveUtils;
+                versioninfo()'
+    - julia --project -e 'using Pkg;
+                          Pkg.test("Pumas"; coverage=true);'
+  only:
+  - master
+  - tags
+  - external
+  - pushes
 
 test-nca:
   stage: test
