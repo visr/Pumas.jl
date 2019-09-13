@@ -131,8 +131,9 @@ function Distributions.fit(
   param::NamedTuple,
   ::BayesMCMC,
   args...;
-  nadapts::Integer=2000,
-  nsamples::Integer=10000,
+  metric=nothing,
+  nadapts::Integer=metric === nothing ? minimum(1000, div(nsample, 10)) : 0,
+  nsamples::Integer=1000,
   kwargs...
 )
   # Extract parameter transformations with and without bounds
@@ -154,7 +155,9 @@ function Distributions.fit(
   dldθ(θ) = logdensitygrad(bayes, θ)
 
   # Set up the NUTS sampler from AdvancedHMC
-  metric  = DiagEuclideanMetric(length(vparam_aug))
+  if metric === nothing
+    metric  = DiagEuclideanMetric(length(vparam_aug))
+  end
   h       = Hamiltonian(metric, l, dldθ)
   prop    = NUTS(Leapfrog(find_good_eps(h, vparam_aug)))
   adaptor = StanHMCAdaptor(nadapts, Preconditioner(metric), NesterovDualAveraging(0.8, prop.integrator.ϵ))
