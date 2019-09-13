@@ -108,7 +108,7 @@ end
 const SimulatedPopulation{T} = AbstractVector{T} where T<:SimulatedObservations
 function DataFrames.DataFrame(pop::SimulatedPopulation; kwargs...)
   dfs = []
-  for s in pop.sims
+  for s in pop
     df = DataFrame(s; kwargs...)
     id = [s.subject.id for i in 1:size(df, 1)]
     insertcols!(df, 1, id=id)
@@ -118,7 +118,7 @@ function DataFrames.DataFrame(pop::SimulatedPopulation; kwargs...)
 end
 
 @recipe function f(pop::SimulatedPopulation)
-  for p in pop.sims
+  for p in pop
     @series begin
       lw --> 1.5
       title --> "Population Simulation"
