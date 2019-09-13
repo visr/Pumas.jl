@@ -237,14 +237,14 @@ end
 
 totransform(d::ConstDomain) = ConstantTransform(d.val)
 function totransform(d::RealDomain)
-  if d.lower == -Inf
-    if d.upper == Inf
+  if d.lower === -∞
+    if d.upper === ∞
       as(Real,-∞,∞)
     else
       as(Real,-∞,d.upper)
     end
   else
-    if d.upper == Inf
+    if d.upper === ∞
       as(Real,d.lower,∞)
     else
       as(Real,d.lower,d.upper)
