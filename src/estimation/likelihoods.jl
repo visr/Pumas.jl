@@ -91,8 +91,8 @@ end
                                  dist::Union{NamedTuple, Nothing})
 
   collated_numtype = numtype(m.pre(param, randeffs, subject))
-
-  if dist isa Nothing
+  # If the solver failed dist will be a namedtuple of nothing
+  if any(d->d isa Nothing, dist)
     return collated_numtype(Inf)
   end
   ll = _lpdf(dist, subject.observations)::collated_numtype
@@ -432,11 +432,14 @@ function marginal_nll(m::PumasModel,
   @assert iszero(vrandeffsorth)
 
   # Compute the gradient of the likelihood and Hessian approxmation in the random effect vector η
-  nl, dldη, W = ∂²l∂η²(m, subject, param, vrandeffsorth, FO(), args...; kwargs...)
-
+  # nl, dldη, W = ∂²l∂η²(m, subject, param, vrandeffsorth, FO(), args...; kwargs...)
+  ∂²l∂η²_dv = ∂²l∂η²(m, subject, param, vrandeffsorth, FO(), args...; kwargs...)
+  sum(map(d->__marginal_nll(d, vrandeffsorth, FO()), ∂²l∂η²_dv))
+end
+function __marginal_nll((nl, dldη, W), vrandeffsorth::AbstractVector, ::FO)
   if isfinite(nl)
     # log|Ω| + log|Ω⁻¹ + W| = log|I + U*W*U'| for Ω=U'U
-    FIW = cholesky(Symmetric(Matrix(I + W')))
+    FIW = cholesky(Symmetric(Matrix(I + W)))
     return nl + (- dldη'*(FIW\dldη) + logdet(FIW))/2
   else # conditional likelihood return Inf
     return typeof(nl)(Inf)
@@ -447,11 +450,25 @@ function marginal_nll(m::PumasModel,
                       subject::Subject,
                       param::NamedTuple,
                       vrandeffsorth::AbstractVector,
-                      approx::Union{FOCE,FOCEI,Laplace,LaplaceI},
+                      approx::Union{FOCE,FOCEI},
+                      args...; kwargs...)::promote_type(numtype(param), numtype(vrandeffsorth))
+
+  ∂²l∂η²_dv = ∂²l∂η²(m, subject, param, vrandeffsorth, approx, args...; kwargs...)
+
+  sum(map(d->__marginal_nll(d, vrandeffsorth, approx), ∂²l∂η²_dv))
+end
+function marginal_nll(m::PumasModel,
+                      subject::Subject,
+                      param::NamedTuple,
+                      vrandeffsorth::AbstractVector,
+                      approx::Union{Laplace,LaplaceI},
                       args...; kwargs...)::promote_type(numtype(param), numtype(vrandeffsorth))
 
   nl, _, W = ∂²l∂η²(m, subject, param, vrandeffsorth, approx, args...; kwargs...)
 
+  __marginal_nll((nl, 0, W), vrandeffsorth, approx)
+end
+function __marginal_nll((nl, dldη, W), vrandeffsorth::AbstractVector, ::Union{FOCE,FOCEI,Laplace,LaplaceI})
   # If the factorization succeeded then compute the approximate marginal likelihood. Otherwise, return Inf.
   if isfinite(nl)
     return nl + (vrandeffsorth'vrandeffsorth + logdet(cholesky(Symmetric(I + W))))/2
@@ -738,13 +755,11 @@ function ∂²l∂η²(m::PumasModel,
   # Compute the conditional likelihood and the conditional distributions of the dependent variable
   # per observation while tracking partial derivatives of the random effects
   dist_d = _derived_vηorth_gradient(m, subject, param, vrandeffsorth, args...; kwargs...)
-  if dist_d === nothing
-    return Inf, nothing, nothing
-  end
-
   # We need to think about this, but I assume this should just be a sum over dv's
   _names = keys(subject.observations) # FIXME-DV
-  return _∂²l∂η²(dist_d[first(_names)], m, subject, param, vrandeffsorth, approx, args...; kwargs...)
+  # clean non-dv's from dist_d
+  clean_dist_d = NamedTuple{keys(subject.observations)}(dist_d)
+  return map(d->_∂²l∂η²(d, m, subject, param, vrandeffsorth, approx, :dvu, args...; kwargs...), clean_dist_d)
 end
 
 function _∂²l∂η²(dv_d::AbstractVector{<:Union{Normal,LogNormal}},
@@ -753,11 +768,11 @@ function _∂²l∂η²(dv_d::AbstractVector{<:Union{Normal,LogNormal}},
                  param::NamedTuple,
                  vrandeffsorth::AbstractVector,
                  ::FO,
+                 dv_name,
                  args...; kwargs...)
   # FIXME-DV
   # Maybe just accept the dv directly here
-  _names = keys(subject.observations)
-  return _∂²l∂η²(subject.observations[first(_names)], dv_d, FO())
+  return _∂²l∂η²(subject.observations[dv_name], dv_d, FO())
 end
 
 function _∂²l∂η²(obsdv::AbstractVector, dv::AbstractVector{<:Normal}, ::FO)
@@ -840,12 +855,13 @@ function _∂²l∂η²(dv_d::AbstractVector{<:Union{Normal,LogNormal}},
                  param::NamedTuple,
                  vrandeffsorth::AbstractVector,
                  ::FOCE,
+                 dv_name,
                  args...; kwargs...)
 
   # Compute the conditional likelihood and the conditional distributions of the dependent variable per observation for η=0
   # If the model is homoscedastic, it is not necessary to recompute the variances at η=0
   if _is_homoscedastic(dv_d)
-    return _∂²l∂η²(subject.observations.dv, dv_d, first(dv_d), FOCE())
+    return _∂²l∂η²(subject.observations[dv_name], dv_d, first(dv_d), FOCE())
   else # in the Heteroscedastic case, compute the variances at η=0
     randeffstransform = totransform(m.random(param))
     dist_0 = _derived(
@@ -859,7 +875,7 @@ function _∂²l∂η²(dv_d::AbstractVector{<:Union{Normal,LogNormal}},
 
     # Compute the Hessian approxmation in the random effect vector η
     # FIXME! Don't hardcode for dv
-    return _∂²l∂η²(subject.observations.dv, dv_d, dist_0.dv, FOCE())
+    return _∂²l∂η²(subject.observations[dv_name], dv_d, dist_0[dv_name], FOCE())
   end
 end
 
@@ -951,7 +967,8 @@ _∂²l∂η²(dv_d::AbstractVector{<:Union{Normal,LogNormal}},
         param::NamedTuple,
         vrandeffsorth::AbstractVector,
         ::FOCEI,
-        args...; kwargs...) = _∂²l∂η²(subject.observations.dv, dv_d, FOCEI())
+        dv_name,
+        args...; kwargs...) = _∂²l∂η²(subject.observations[dv_name], dv_d, FOCEI())
 
 
 # FIXME! Don't hardcode for dv
@@ -979,7 +996,6 @@ function ∂²l∂η²(m::PumasModel,
 
 #   # Extract the derivatives
   nl, W = DiffResults.value(diffres), DiffResults.hessian(diffres)
-
   return nl, nothing, W
 end
 
