@@ -256,7 +256,7 @@ function simobs(m::PumasModel, pop::Population, args...;
   elseif parallel_type == SplitThreads
     error("SplitThreads is not yet implemented")
   end
-  SimulatedPopulation(sims)
+  sims
 end
 
 """

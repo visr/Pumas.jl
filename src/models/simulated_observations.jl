@@ -105,15 +105,7 @@ function good_layout(n)
   n > 4  && return n
 end
 
-struct SimulatedPopulation{S}
-  sims::S
-end
-@inline function Base.getindex(pop::SimulatedPopulation, I...)
-  return pop.sims[I...]
-end
-@inline function Base.setindex!(pop::SimulatedPopulation, x, I...)
-  pop.sims[I...] = x
-end
+const SimulatedPopulation{T} = AbstractVector{T} where T<:SimulatedObservations
 function DataFrames.DataFrame(pop::SimulatedPopulation; kwargs...)
   dfs = []
   for s in pop.sims
