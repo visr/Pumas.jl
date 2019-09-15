@@ -55,12 +55,12 @@ function get_simulation_quantiles(sims::AbstractVector, reps::Integer, dv_::Symb
     quantiles_sim = []
     for t in 1:length(idv_)
       sims_t = [Float64[] for i in 1:length(strat_quant)]
-      for j in 1:length(sim.sims)
+      for j in 1:length(sim)
         for strt in 1:length(strat_quant)
-          if  stratify_on == nothing || (length(strat_quant)<4 && stratify_on != nothing && sim.sims[j].subject.covariates[stratify_on] <= strat_quant[strt])
+          if  stratify_on == nothing || (length(strat_quant)<4 && stratify_on != nothing && sim[j].subject.covariates[stratify_on] <= strat_quant[strt])
             push!(sims_t[strt], getproperty(sim[j].observed,dv_)[t])
-          elseif stratify_on != nothing && sim.sims[j].subject.covariates[stratify_on] <= strat_quant[strt]
-            if strt > 1 && sim.sims[j].subject.covariates[stratify_on] > strat_quant[strt-1]
+          elseif stratify_on != nothing && sim[j].subject.covariates[stratify_on] <= strat_quant[strt]
+            if strt > 1 && sim[j].subject.covariates[stratify_on] > strat_quant[strt-1]
               push!(sims_t[strt], getproperty(sim[j].observed,dv_)[t])
             elseif strt == 1
               push!(sims_t[strt], getproperty(sim[j].observed,dv_)[t])

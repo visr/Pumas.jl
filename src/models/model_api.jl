@@ -55,10 +55,13 @@ function timespan(sub::Subject,tspan,saveat)
 end
 
 # Where to save
-observationtimes(sub::Subject) = isnothing(sub.observations) &&
+# `sub.time` has the highest precedence
+# then `0:lastdose+24`
+# then `0:24`
+observationtimes(sub::Subject) = !isnothing(sub.time) ? sub.time :
                                  !isnothing(sub.events) && !isempty(sub.events) ?
                                  (0.0:1.0:(sub.events[end].time+24.0)) :
-                                 sub.time
+                                 (0.0:24.0)
 
 
 """
@@ -252,7 +255,7 @@ function simobs(m::PumasModel, pop::Population, args...;
   elseif parallel_type == SplitThreads
     error("SplitThreads is not yet implemented")
   end
-  SimulatedPopulation(sims)
+  sims
 end
 
 """
