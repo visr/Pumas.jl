@@ -18,8 +18,8 @@ function DiffEqSensitivity.gsa(m::PumasModel,population::Population,params::Name
     trf_ident = toidentitytransform(m.param)
     function f(p)
         param = TransformVariables.transform(trf_ident,p)
-        sim = simobs(m,population,param,args...;kwargs...)
-        collect(Iterators.flatten([collect(Iterators.flatten([getproperty(sim.sims[i].observed,key) for key in vars])) for i in 1:length(sim.sims)]))
+        sims = simobs(m,population,param,args...;kwargs...)
+        collect(Iterators.flatten([collect(Iterators.flatten([getproperty(sims[i].observed,key) for key in vars])) for i in 1:length(sims)]))
     end
     DiffEqSensitivity.gsa(f,p_range,method)
 end

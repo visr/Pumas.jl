@@ -423,7 +423,7 @@ end
 """
 A `Population` is an `AbstractVector` of `Subject`s.
 """
-Population{T} = AbstractVector{T} where T<:Subject
+const Population{T} = AbstractVector{T} where T<:Subject
 Population(obj::Population...) = reduce(vcat, obj)::Population
 
 function DataFrames.DataFrame(pop::Population; include_covariates=true, include_dvs=true)
