@@ -59,7 +59,6 @@ end
 # then `0:lastdose+24`
 # then `0:24`
 observationtimes(sub::Subject) = !isnothing(sub.time) ? sub.time :
-                                 isnothing(sub.observations) &&
                                  !isnothing(sub.events) && !isempty(sub.events) ?
                                  (0.0:1.0:(sub.events[end].time+24.0)) :
                                  (0.0:24.0)
