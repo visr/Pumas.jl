@@ -81,22 +81,31 @@ the derived produces distributions.
                                  args...;
                                  kwargs...)
     dist = _derived(m, subject, param, randeffs, args...; kwargs...)
-    conditional_nll(m, subject, param, randeffs, dist)
+    _conditional_nll(m, subject, param, randeffs, dist)
 end
 
-@inline function conditional_nll(m::PumasModel,
-                                 subject::Subject,
-                                 param::NamedTuple,
-                                 randeffs::NamedTuple,
-                                 dist::Union{NamedTuple, Nothing})
+@inline function _conditional_nll(m::PumasModel,
+                                  subject::Subject,
+                                  param::NamedTuple,
+                                  randeffs::NamedTuple,
+                                  dist::Union{NamedTuple, Nothing})
 
   collated_numtype = numtype(m.pre(param, randeffs, subject))
+
   # If the solver failed dist will be a namedtuple of nothing
   if any(d->d isa Nothing, dist)
-    return collated_numtype(Inf)
-  end
-  ll = _lpdf(dist, subject.observations)::collated_numtype
-  return -ll
+    return -collated_numtype(Inf)
+  else
+    ll = _lpdf(dist, subject.observations)::collated_numtype
+
+    # If (negative) likehood is infinity or the model is Homoscedastic, we just return l
+    _names = keys(subject.observations) # FIXME-DV
+    if isinf(ll) || _is_homoscedastic(dist[first(_names)])
+      return -ll
+    else # compute the adjusted (negative) likelihood where the variance is evaluated at η=0
+      dist0 = _derived(m, subject, param, map(zero, randeffs), args...; kwargs...)
+      return -_conditional_nll(dist.dv, dist0.dv, subject)
+    end
 end
 
 conditional_nll(m::PumasModel,
@@ -114,16 +123,7 @@ function conditional_nll(m::PumasModel,
                          approx::Union{FO,FOCE,Laplace},
                          args...; kwargs...)
   dist = _derived(m, subject, param, randeffs, args...;kwargs...)
-  l = conditional_nll(m, subject, param, randeffs, dist)
-
-  # If (negative) likehood is infinity or the model is Homoscedastic, we just return l
-  _names = keys(subject.observations) # FIXME-DV
-  if isinf(l) || _is_homoscedastic(getfield(dist, first(_names)))
-    return l
-  else # compute the adjusted (negative) likelihood where the variance is evaluated at η=0
-    dist0 = _derived(m, subject, param, map(zero, randeffs), args...; kwargs...)
-    return _conditional_nll(dist.dv, dist0.dv, subject)
-  end
+  return conditional_nll(m, subject, param, randeffs, dist)
 end
 
 # FIXME! Having both a method for randeffs::NamedTuple and vrandeffsorth::AbstractVector shouldn't really be necessary. Clean it up!
@@ -454,7 +454,9 @@ function marginal_nll(m::PumasModel,
                       args...; kwargs...)::promote_type(numtype(param), numtype(vrandeffsorth))
 
   ∂²l∂η²_dv = ∂²l∂η²(m, subject, param, vrandeffsorth, approx, args...; kwargs...)
-
+  if any(d->d isa Nothing, ∂²l∂η²_dv)
+    return collated_numtype(Inf)
+  end
   sum(map(d->__marginal_nll(d, vrandeffsorth, approx), ∂²l∂η²_dv))
 end
 function marginal_nll(m::PumasModel,
@@ -759,7 +761,8 @@ function ∂²l∂η²(m::PumasModel,
   _names = keys(subject.observations) # FIXME-DV
   # clean non-dv's from dist_d
   clean_dist_d = NamedTuple{keys(subject.observations)}(dist_d)
-  return map(d->_∂²l∂η²(d, m, subject, param, vrandeffsorth, approx, :dvu, args...; kwargs...), clean_dist_d)
+
+  return map(d->_∂²l∂η²(d[1], m, subject, param, vrandeffsorth, approx, d[2], args...; kwargs...), zip(clean_dist_d, _names))
 end
 
 function _∂²l∂η²(dv_d::AbstractVector{<:Union{Normal,LogNormal}},

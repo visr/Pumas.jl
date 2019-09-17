@@ -97,7 +97,6 @@ using Pumas, Test, LinearAlgebra
   @testset "testing model: $_model, with $_approx approximation" for
     _model in ("additive", "proportional", "exponential"),
       _approx in (Pumas.FO(), Pumas.FOCE(), Pumas.FOCEI(), Pumas.Laplace(), Pumas.LaplaceI())
-
     if _model == "proportional" && _approx == Pumas.LaplaceI()
       # Hessian in random effects beecome indfinite
       @test_broken fit(model[_model], data, param, _approx) isa Pumas.FittedPumasModel
