@@ -317,7 +317,7 @@ function dynamics_obj(odeexpr::Expr, pre, odevars, callvars, bvars, eqs, isstati
     push!(mteqs,lhsvar ~ convert_rhs_to_Expression(rhseq,bvars,dvars,params,t))
   end
 
-  f_ex = generate_function(ODESystem(mteqs),dvars,params)
+  f_ex = generate_function(ODESystem(mteqs),dvars,params)[1]
 
   quote
     let
