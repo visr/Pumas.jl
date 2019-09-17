@@ -1,5 +1,5 @@
 using Test
-using Pumas, LinearAlgebra
+using Pumas
 
 @testset "args and kwargs" begin
 data = read_pumas(example_data("sim_data_model1"))

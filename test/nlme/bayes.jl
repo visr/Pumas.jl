@@ -1,4 +1,4 @@
-using Pumas, Test, CSV, Random, Distributions, LinearAlgebra, TransformVariables
+using Pumas, Test, CSV, Random, Distributions, TransformVariables
 
 theopp = read_pumas(example_data("event_data/THEOPP"),cvs = [:WT,:SEX])
 

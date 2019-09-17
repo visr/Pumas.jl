@@ -5,6 +5,7 @@ using DiffEqDiffTools, Reexport, StatsBase,
       TreeViews, CSV, ForwardDiff, DiffResults, Optim, PDMats,
       Missings, RecipesBase, RecursiveArrayTools, HCubature,
       Statistics, DiffEqSensitivity
+using LinearAlgebra
 using AdvancedHMC: DiagEuclideanMetric, Hamiltonian, NUTS, Leapfrog, find_good_eps, StanHMCAdaptor, Preconditioner, NesterovDualAveraging
 import MCMCChains: Chains
 
@@ -68,5 +69,7 @@ export infer, inspect
 export vpc, vpc_obs
 export gsa
 export mean, std, var, coef
+# From LinearAlgebra
+export diagm, Diagonal, I
 
 end # module

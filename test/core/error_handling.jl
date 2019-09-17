@@ -1,4 +1,4 @@
-using Test, Pumas, LinearAlgebra
+using Test, Pumas
 
 #Creating the dataset
 

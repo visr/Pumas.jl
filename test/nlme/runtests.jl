@@ -1,5 +1,5 @@
 using Test, SafeTestsets
-using Pumas, LinearAlgebra, Optim, StatsBase
+using Pumas, StatsBase
 
 if group == "All" || group == "NLME_Basic"
   @time @safetestset "Maximum-likelihood interface" begin

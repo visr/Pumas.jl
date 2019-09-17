@@ -1,6 +1,6 @@
 using Distributed
 addprocs(2)
-@everywhere using Pumas, LinearAlgebra
+@everywhere using Pumas
 theopp = read_pumas(example_data("event_data/THEOPP"),cvs=[:SEX,:WT])
 
 theopmodel_fo_a = @model begin

@@ -1,5 +1,5 @@
 using Test
-using Pumas, LinearAlgebra
+using Pumas
 
 theopp_nlme = read_pumas(example_data("THEOPP"))
 

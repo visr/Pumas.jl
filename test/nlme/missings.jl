@@ -1,4 +1,4 @@
-using Pumas, Test, LinearAlgebra
+using Pumas, Test
 
 @testset "Test with missing values" begin
 

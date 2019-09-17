@@ -1,4 +1,4 @@
-using Pumas, Test, LinearAlgebra
+using Pumas, Test
 
 @testset "Testing dose control parameters" begin
 

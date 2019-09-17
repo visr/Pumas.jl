@@ -1,3 +1,5 @@
+using LinearAlgebra: Factorization
+
 _cmt_value(ev::Event, u0, var::Number, default) = var
 function _cmt_value(ev::Event, u0, var::Union{Tuple,AbstractArray},default)
   ev.cmt ∈ keys(var) ? var[ev.cmt] : default

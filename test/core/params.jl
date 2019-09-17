@@ -1,5 +1,5 @@
 using Test
-using Pumas, TransformVariables, LinearAlgebra, Distributions
+using Pumas, TransformVariables, Distributions
 
 @testset "ParamSets and Domains tests" begin
   p = ParamSet((θ = VectorDomain(4, lower=zeros(4), init=ones(4)), # parameters

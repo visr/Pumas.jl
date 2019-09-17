@@ -1,5 +1,5 @@
 using Test
-using Pumas, LinearAlgebra, Optim
+using Pumas
 
 data = read_pumas(example_data("sim_data_model1"))
 

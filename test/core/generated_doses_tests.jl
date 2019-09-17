@@ -1,4 +1,4 @@
-using Test, LinearAlgebra
+using Test
 using Pumas
 
 # Gut dosing model
