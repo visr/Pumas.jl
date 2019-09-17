@@ -414,7 +414,7 @@ function marginal_nll(m::PumasModel,
                       subject::Subject,
                       param::NamedTuple,
                       vrandeffsorth::AbstractVector,
-                      ::NaivePooled,
+                      ::NaivePooled, 
                       args...; kwargs...)::promote_type(numtype(param), numtype(vrandeffsorth))
 
   # The negative loglikelihood function. There are no random effects.
@@ -435,8 +435,7 @@ function marginal_nll(m::PumasModel,
   nl, dldη, W = ∂²l∂η²(m, subject, param, vrandeffsorth, FO(), args...; kwargs...)
 
   if isfinite(nl)
-    # log|Ω| + log|Ω⁻¹ + W| = log|I + U*W*U'| for Ω=U'U
-    FIW = cholesky(Symmetric(Matrix(I + W')))
+    FIW = cholesky(Symmetric(Matrix(I + W)))
     return nl + (- dldη'*(FIW\dldη) + logdet(FIW))/2
   else # conditional likelihood return Inf
     return typeof(nl)(Inf)
@@ -453,12 +452,16 @@ function marginal_nll(m::PumasModel,
   nl, _, W = ∂²l∂η²(m, subject, param, vrandeffsorth, approx, args...; kwargs...)
 
   # If the factorization succeeded then compute the approximate marginal likelihood. Otherwise, return Inf.
+  # FIXME. For now we have to convert to matrix to have the check=false version available. Eventually,
+  # this should also work with a StaticMatrix
   if isfinite(nl)
-    return nl + (vrandeffsorth'vrandeffsorth + logdet(cholesky(Symmetric(I + W))))/2
-  else
-    # # conditional likelihood return Inf
-    return typeof(nl)(Inf)
+    FIW = cholesky(Symmetric(Matrix(I + W)), check=false)
+    if issuccess(FIW)
+      return nl + (vrandeffsorth'vrandeffsorth + logdet(FIW))/2
+    end
   end
+  # conditional likelihood return Inf
+  return typeof(nl)(Inf)
 end
 
 function marginal_nll(m::PumasModel,

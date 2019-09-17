@@ -47,12 +47,6 @@ end
 @test deviance(mdsl1, data, param, Pumas.LaplaceI())  ≈ 56.810343602063618 rtol=1e-6
 @test deviance(mdsl1, data, param, Pumas.HCubeQuad()) ≈ 56.92491372848633  rtol=1e-6 #regression test
 
-# FIXME! Distributed testing should use multiple processes instead of just testing
-# the code path
-@testset "parallel_type = $p" for p in (Pumas.Serial, Pumas.Threading, Pumas.Distributed)
-    @test deviance(mdsl1, data, param, Pumas.FO(), parallel_type=p) ≈ 56.474912258255571 rtol=1e-6
-end
-
 ft = fit(mdsl1, data, param, Pumas.FOCEI())
 @test sprint((io, t) -> show(io, MIME"text/plain"(), t), ft) ==
 """
