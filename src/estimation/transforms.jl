@@ -284,10 +284,14 @@ totransform(d::MvNormal) = MvNormalTransform(d)
 TransformVariables.dimension(t::MvNormalTransform) = length(t.d)
 function TransformVariables.transform_with(flag::TransformVariables.LogJacFlag, t::MvNormalTransform,
                                            x::TransformVariables.RealVector{T}) where T
+  if !(flag isa TransformVariables.NoLogJac)
+    ℓ = logdet(t.d.Σ)/2
+  else
     ℓ = TransformVariables.logjac_zero(flag, T)
-    # FIXME! This promotion should happen in PDMats
-    TT = promote_type(T, eltype(t.d.Σ))
-    return unwhiten(t.d.Σ, convert(AbstractArray{TT}, x)) + mean(t.d), ℓ
+  end
+  # FIXME! This promotion should happen in PDMats
+  TT = promote_type(T, eltype(t.d.Σ))
+  return unwhiten(t.d.Σ, convert(AbstractArray{TT}, x)) + mean(t.d), ℓ
 end
 TransformVariables.inverse_eltype(::MvNormalTransform, y::AbstractVector{T}) where T = T
 function TransformVariables.inverse!(x::AbstractVector, t::MvNormalTransform, y::AbstractVector)

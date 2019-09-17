@@ -119,7 +119,6 @@ test-nlme-bayes:
   stage: test
   variables:
     GROUP: "NLME_BAYES"
-    BAYES_N: 100
   script:
     - julia -e 'using InteractiveUtils;
                 versioninfo()'

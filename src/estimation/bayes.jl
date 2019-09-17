@@ -121,13 +121,15 @@ struct BayesMCMCResults{L<:BayesLogDensity,C,T}
   tuned::T
 end
 
+Base.show(io::IO, ::MIME"text/plain", b::BayesMCMCResults) = show(io, MIME"text/plain"(), Chains(b))
+
 struct BayesMCMC <: LikelihoodApproximation end
 
 function Distributions.fit(
   model::PumasModel,
   data::Population,
+  param::NamedTuple,
   ::BayesMCMC,
-  θ_init::NamedTuple=init_param(model),
   args...;
   nadapts::Integer=2000,
   nsamples::Integer=10000,
@@ -138,7 +140,7 @@ function Distributions.fit(
   trf_ident = toidentitytransform(model.param)
 
   # Transform NamedTuple of initial parameters to a Vector
-  vparam = Pumas.TransformVariables.inverse(trf, θ_init)
+  vparam = Pumas.TransformVariables.inverse(trf, param)
 
   # Create BayesLogDensity objecet from Pumas model and data
   bayes = BayesLogDensity(model, data, args...; kwargs...)
@@ -158,7 +160,15 @@ function Distributions.fit(
   adaptor = StanHMCAdaptor(nadapts, Preconditioner(metric), NesterovDualAveraging(0.8, prop.integrator.ϵ))
 
   # Run the MCMC sampler
-  samples, stats = sample(h, prop, vparam_aug, nsamples, adaptor, nadapts; progress=true)
+  samples, stats = sample(h, prop, vparam_aug, nsamples, adaptor, nadapts; progress=Base.is_interactive)
+
+  return BayesMCMCResults(bayes, samples, stats)
+end
+
+function Chains(b::BayesMCMCResults)
+  # Extract parameter transformations with and without bounds
+  trf       = totransform(b.loglik.model.param)
+  trf_ident = toidentitytransform(b.loglik.model.param)
 
   # Construct closure that transforms the parameter vector to a NamedTuple by applying the parameter bounds
   trans      = v -> TransformVariables.transform(trf, v)
@@ -166,25 +176,18 @@ function Distributions.fit(
   transident = v -> TransformVariables.inverse(trf_ident, v)
 
   # Apply the transformations to the samples
-  samples_transf  = trans.(samples)
+  samples_transf  = trans.(b.chain)
   samples_transid = transident.(samples_transf)
 
   # Construct labels to the parameters
   names = String[]
   vals = []
-  for (name,val) in pairs(samples_transf[1])
+  for (name, val) in pairs(samples_transf[1])
     _push_varinfo!(names, vals, nothing, nothing, name, val, nothing, nothing)
   end
 
-  # Construct a Chains object for nice printing of the results
-  samples_ = Chains(samples_transid, names)
-
-  return BayesMCMCResults(bayes, samples_, stats)
-end
-
-function Distributions.fit(model::PumasModel, data::Population, param::NamedTuple, ::BayesMCMC,
-  args...; nsamples=5000, kwargs...)
-  fit(model, data, BayesMCMC(), param,args...;nsamples = nsamples, kwargs...)
+  # Reeturn a Chains object for nice printing of the results
+  return Chains(samples_transid, names)
 end
 
 # remove unnecessary PDMat wrappers
@@ -194,21 +197,17 @@ _clean_param(x::NamedTuple) = map(_clean_param, x)
 
 # "unzip" the results via a StructArray
 function param_values(b::BayesMCMCResults)
-  param = b.loglik.model.param
-  trf_ident = toidentitytransform(param)
-  chain = Array(b.chain)
-  StructArray([_clean_param(TransformVariables.transform(trf_ident, chain[c,:])) for c in 1:size(chain)[1]])
+  trf  = Pumas.totransform(b.loglik.model.param)
+  vals = TransformVariables.transform.(Ref(trf), b.chain)
+  return vals
 end
 
-function param_mean(b::BayesMCMCResults)
-  vals = param_values(b)
-  map(mean, StructArrays.fieldarrays(vals))
+function param_reduce(f, b::BayesMCMCResults)
+  trf  = Pumas.totransform(        b.loglik.model.param)
+  trfi = Pumas.toidentitytransform(b.loglik.model.param)
+  vals = TransformVariables.inverse.(Ref(trfi), TransformVariables.transform.(Ref(trf), b.chain))
+  return TransformVariables.transform(trfi, f(vals))
 end
-function param_var(b::BayesMCMCResults)
-  vals = param_values(b)
-  map(var, StructArrays.fieldarrays(vals))
-end
-function param_std(b::BayesMCMCResults)
-  vals = param_values(b)
-  map(std, StructArrays.fieldarrays(vals))
-end
+param_mean(b::BayesMCMCResults) = param_reduce(mean, b)
+param_var(b::BayesMCMCResults)  = param_reduce(var, b)
+param_std(b::BayesMCMCResults)  = param_reduce(std, b)

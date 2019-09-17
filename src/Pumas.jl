@@ -3,10 +3,10 @@ module Pumas
 using DiffEqDiffTools, Reexport, StatsBase,
       StaticArrays, Distributed, LabelledArrays, GLM,
       TreeViews, CSV, ForwardDiff, DiffResults, Optim, PDMats,
-      Missings, RecipesBase, StructArrays, RecursiveArrayTools, HCubature,
+      Missings, RecipesBase, RecursiveArrayTools, HCubature,
       Statistics, DiffEqSensitivity
 using AdvancedHMC: DiagEuclideanMetric, Hamiltonian, NUTS, Leapfrog, find_good_eps, StanHMCAdaptor, Preconditioner, NesterovDualAveraging
-using MCMCChains: Chains
+import MCMCChains: Chains
 
 import DiffResults: DiffResult
 
