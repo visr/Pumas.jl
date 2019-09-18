@@ -1,5 +1,5 @@
 using Test
-using Pumas, LinearAlgebra
+using Pumas
 
 # FIXME! Find a nicer way to handle this
 _extract(A::Pumas.PDMats.PDMat) = A.mat

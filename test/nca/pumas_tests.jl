@@ -1,5 +1,4 @@
 using Pumas
-using LinearAlgebra
 
 choose_covariates() = (isPM = rand([1, 0]),
                        Wt = rand(55:80))

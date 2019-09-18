@@ -1,4 +1,4 @@
-using Pumas, LinearAlgebra, Test, CSV
+using Pumas, Test, CSV
 
 @testset "One compartment intravenous bolus study" begin
   #No. of subjects= 100, Dose = 100 or 250mg,DV=Plasma concentration, ug/ml

@@ -1,3 +1,4 @@
+using LinearAlgebra: Cholesky, copytri!
 import TransformVariables
 using TransformVariables: as, asℝ₊, ∞
 
@@ -126,7 +127,7 @@ function TransformVariables.transform_with(flag::TransformVariables.LogJacFlag, 
       error("not support")
     end
   end
-  (LinearAlgebra.copytri!(M, 'L')), ℓ
+  copytri!(M, 'L'), ℓ
 end
 
 TransformVariables.inverse_eltype(::VechTransform, y::PDMat{T}) where T = T

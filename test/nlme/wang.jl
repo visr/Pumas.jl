@@ -1,5 +1,5 @@
 using Test
-using Pumas, LinearAlgebra, Optim, CSV
+using Pumas, CSV
 
 @testset "Models from the Wang paper" begin
 

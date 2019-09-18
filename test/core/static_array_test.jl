@@ -1,4 +1,4 @@
-using Pumas, Test, Random, LinearAlgebra, LabelledArrays
+using Pumas, Test, Random, LabelledArrays
 
 # Read the data# Read the data
 data = read_pumas(example_data("data1"),

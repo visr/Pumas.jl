@@ -1,4 +1,3 @@
-using LinearAlgebra
 export ParamSet, ConstDomain, RealDomain, VectorDomain, PSDDomain, PDiagDomain, Constrained
 
 abstract type Domain end

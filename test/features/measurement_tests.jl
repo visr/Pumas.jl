@@ -1,5 +1,5 @@
 using Pumas, Measurements, LabelledArrays
-using Random, LinearAlgebra, Test
+using Random, Test
 
 data = read_pumas(example_data("data1"), cvs = [:sex,:wt,:etn])
 subject = data[1]
