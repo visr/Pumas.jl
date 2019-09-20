@@ -3,6 +3,9 @@ const DEFAULT_ESTIMATION_ABSTOL=1e-12
 const DEFAULT_SIMULATION_RELTOL=1e-3
 const DEFAULT_SIMULATION_ABSTOL=1e-6
 
+# Deprecate soon
+@enum ParallelType Serial=1 Threading=2 Distributed=3 SplitThreads=4
+
 """
     PumasModel
 
@@ -91,25 +94,20 @@ function DiffEqBase.solve(m::PumasModel, subject::Subject,
   solve(prob,args...;alg=alg,kwargs...)
 end
 
-@enum ParallelType Serial=1 Threading=2 Distributed=3 SplitThreads=4
 function DiffEqBase.solve(m::PumasModel, pop::Population,
                           param = init_param(m),
-                          args...; parallel_type = Threading,
+                          randeffs = sample_randeffs(m, param),
+                          args...;
+                          alg=AutoTsit5(Rosenbrock23()),
+                          ensemblealg = EnsembleThreads(),
                           kwargs...)
-  time = @elapsed if parallel_type == Serial
-    sols = [solve(m,subject,param,args...;kwargs...) for subject in pop]
-  elseif parallel_type == Threading
-    _sols = Vector{Any}(undef,length(pop))
-    Threads.@threads for i in 1:length(pop)
-      _sols[i] = solve(m,pop[i],param,args...;kwargs...)
-    end
-    sols = [sol for sol in _sols] # Make strict typed
-  elseif parallel_type == Distributed
-    sols = pmap((subject)->solve(m,subject,param,args...;kwargs...),pop)
-  elseif parallel_type == SplitThreads
-    error("SplitThreads is not yet implemented")
+
+  function solve_prob_func(prob,i,repeat)
+    col = m.pre(param, randeffs, pop[i])
+    _problem(m,pop[i],col,args...;kwargs...)
   end
-  EnsembleSolution(sols,time,true)
+  prob = EnsembleProblem(m.prob,prob_func = solve_prob_func)
+  solve(prob,alg,ensemblealg,args...;trajectories = length(pop),kwargs...)
 end
 
 """
