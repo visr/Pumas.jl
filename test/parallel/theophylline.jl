@@ -86,10 +86,9 @@ param = (
     Ω  = diagm(0 => [5.55, 0.0024, 0.515]), # update to block diagonal
     σ_add = 0.388
      )
-
-simobs(theopmodel_fo_a, theopp, param, parallel_type=Pumas.Serial)
-simobs(theopmodel_fo_s, theopp, param, parallel_type=Pumas.Serial)
-simobs(theopmodel_fo_a, theopp, param, parallel_type=Pumas.Threading)
-simobs(theopmodel_fo_s, theopp, param, parallel_type=Pumas.Threading)
-simobs(theopmodel_fo_a, theopp, param, parallel_type=Pumas.Distributed)
-simobs(theopmodel_fo_s, theopp, param, parallel_type=Pumas.Distributed)
+simobs(theopmodel_fo_a, theopp, param, ensemblealg = EnsembleSerial())
+simobs(theopmodel_fo_s, theopp, param, ensemblealg = EnsembleSerial())
+simobs(theopmodel_fo_a, theopp, param, ensemblealg = EnsembleThreads())
+simobs(theopmodel_fo_s, theopp, param, ensemblealg = EnsembleThreads())
+simobs(theopmodel_fo_a, theopp, param, ensemblealg = EnsembleDistributed())
+simobs(theopmodel_fo_s, theopp, param, ensemblealg = EnsembleDistributed())

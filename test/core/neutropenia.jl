@@ -103,7 +103,7 @@ param = Pumas.init_param(m_neut)
 sol_diffeq = solve(m_neut,subject,param)
 
 # Should be made into a population test
-sol_diffeq = solve(m_neut,subject,param, parallel_type = Pumas.Threading)
+sol_diffeq = solve(m_neut,subject,param, ensemblealg = EnsembleThreads())
 
 @test Pumas.conditional_nll(m_neut, subject, param, NamedTuple()) ≈ 79.54079056760992 rtol=7e-5
 

@@ -3,6 +3,9 @@ const DEFAULT_ESTIMATION_ABSTOL=1e-12
 const DEFAULT_SIMULATION_RELTOL=1e-3
 const DEFAULT_SIMULATION_ABSTOL=1e-6
 
+# Deprecate soon
+@enum ParallelType Serial=1 Threading=2 Distributed=3 SplitThreads=4
+
 """
     PumasModel
 
@@ -91,25 +94,20 @@ function DiffEqBase.solve(m::PumasModel, subject::Subject,
   solve(prob,args...;alg=alg,kwargs...)
 end
 
-@enum ParallelType Serial=1 Threading=2 Distributed=3 SplitThreads=4
 function DiffEqBase.solve(m::PumasModel, pop::Population,
                           param = init_param(m),
-                          args...; parallel_type = Threading,
+                          randeffs = sample_randeffs(m, param),
+                          args...;
+                          alg=AutoTsit5(Rosenbrock23()),
+                          ensemblealg = EnsembleThreads(),
                           kwargs...)
-  time = @elapsed if parallel_type == Serial
-    sols = [solve(m,subject,param,args...;kwargs...) for subject in pop]
-  elseif parallel_type == Threading
-    _sols = Vector{Any}(undef,length(pop))
-    Threads.@threads for i in 1:length(pop)
-      _sols[i] = solve(m,pop[i],param,args...;kwargs...)
-    end
-    sols = [sol for sol in _sols] # Make strict typed
-  elseif parallel_type == Distributed
-    sols = pmap((subject)->solve(m,subject,param,args...;kwargs...),pop)
-  elseif parallel_type == SplitThreads
-    error("SplitThreads is not yet implemented")
+
+  function solve_prob_func(prob,i,repeat)
+    col = m.pre(param, randeffs, pop[i])
+    _problem(m,pop[i],col,args...;kwargs...)
   end
-  EnsembleSolution(sols,time,true)
+  prob = EnsembleProblem(m.prob,prob_func = solve_prob_func)
+  solve(prob,alg,ensemblealg,args...;trajectories = length(pop),kwargs...)
 end
 
 """
@@ -118,7 +116,7 @@ be repeated in the other API functions
 """
 function _problem(m::PumasModel, subject, col, args...;
                 tspan=nothing, saveat=Float64[], kwargs...)
-  m.prob === nothing && return nothing
+  m.prob === nothing && return NullDEProblem()
   if tspan === nothing
     tspan = float.(timespan(subject,tspan,saveat))
   end
@@ -184,7 +182,7 @@ to be repeated in the other API functions
   # at obstimes such that we can simply pass solution.u to m.derived
   _saveat = obstimes === nothing ? Float64[] : obstimes
   _prob = _problem(m, subject, collated, args...; saveat=_saveat, kwargs...)
-  if _prob === nothing
+  if _prob isa NullDEProblem
     dist = m.derived(collated, nothing, obstimes, subject)
   else
     sol = solve(_prob,args...;reltol=reltol, abstol=abstol, alg=alg, kwargs...)
@@ -229,8 +227,6 @@ function simobs(m::PumasModel, subject::Subject,
                 obstimes=observationtimes(subject),
                 saveat=obstimes,kwargs...)
   col = m.pre(param, randeffs, subject)
-  m.prob !== nothing && (isnothing(obstimes) || isempty(obstimes)) &&
-                          throw(ArgumentError("obstimes is empty."))
   prob = _problem(m, subject, col, args...; saveat=saveat, kwargs...)
   alg = m.prob isa ExplicitModel ? nothing : alg=AutoTsit5(Rosenbrock23())
   sol = prob !== nothing ? solve(prob, args...; alg=alg, kwargs...) : nothing
@@ -239,23 +235,34 @@ function simobs(m::PumasModel, subject::Subject,
   SimulatedObservations(subject,obstimes,obs)
 end
 
-function simobs(m::PumasModel, pop::Population, args...;
-                parallel_type = Threading,
+function simobs(m::PumasModel, pop::Population,
+                param = init_param(m),
+                randeffs=sample_randeffs(m, param),
+                args...;
+                alg=AutoTsit5(Rosenbrock23()),
+                ensemblealg = EnsembleThreads(),
                 kwargs...)
-  time = @elapsed if parallel_type == Serial
-    sims = [simobs(m,subject,args...;kwargs...) for subject in pop]
-  elseif parallel_type == Threading
-    _sims = Vector{Any}(undef,length(pop))
-    Threads.@threads for i in 1:length(pop)
-      _sims[i] = simobs(m,pop[i],args...;kwargs...)
-    end
-    sims = [sim for sim in _sims] # Make strict typed
-  elseif parallel_type == Distributed
-    sims = pmap((subject)->simobs(m,subject,args...;kwargs...),pop)
-  elseif parallel_type == SplitThreads
-    error("SplitThreads is not yet implemented")
+
+  function simobs_prob_func(prob,i,repeat)
+    col = m.pre(param, randeffs, pop[i])
+    obstimes = :obstimes ∈ keys(kwargs) ? kwargs[:obstimes] : observationtimes(pop[i])
+    saveat = :saveat ∈ keys(kwargs) ? kwargs[:saveat] : obstimes
+    _problem(m,pop[i],col,args...; saveat=saveat,kwargs...)
   end
-  sims
+
+  # TODO: Get rid of repeat calculations
+  function simobs_output_func(sol,i)
+    col = m.pre(param, randeffs, pop[i])
+    obstimes = :obstimes ∈ keys(kwargs) ? kwargs[:obstimes] : observationtimes(pop[i])
+    saveat = :saveat ∈ keys(kwargs) ? kwargs[:saveat] : obstimes
+    derived = m.derived(col,sol,obstimes,pop[i])
+    obs = m.observed(col,sol,obstimes,map(_rand,derived),pop[i])
+    SimulatedObservations(pop[i],obstimes,obs),false
+  end
+
+  prob = EnsembleProblem(m.prob,prob_func = simobs_prob_func,
+                         output_func = simobs_output_func)
+  solve(prob,alg,ensemblealg,args...;trajectories = length(pop),kwargs...).u
 end
 
 """
