@@ -256,13 +256,12 @@ function simobs(m::PumasModel, pop::Population,
     obstimes = :obstimes ∈ keys(kwargs) ? kwargs[:obstimes] : observationtimes(pop[i])
     derived = m.derived(col,sol,obstimes,pop[i])
     obs = m.observed(col,sol,obstimes,map(_rand,derived),pop[i])
-    obs,false
+    SimulatedObservations(pop[i],obstimes,obs),false
   end
 
   prob = EnsembleProblem(m.prob,prob_func = simobs_prob_func,
                          output_func = simobs_output_func)
-  sol = solve(prob,alg,ensemblealg,args...;trajectories = length(pop),kwargs...)
-  SimulatedPopulation(sol)
+  solve(prob,alg,ensemblealg,args...;trajectories = length(pop),kwargs...).u
 end
 
 """
