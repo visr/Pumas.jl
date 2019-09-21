@@ -393,6 +393,7 @@ function Base.show(io::IO, subject::Subject)
                      observables)
     println(io, "  Observables: $vals")
   end
+  println(io, string("  Covariates: $(subject.covariates)"))
 end
 TreeViews.hastreeview(::Subject) = true
 function TreeViews.treelabel(io::IO, subject::Subject, mime::MIME"text/plain")
