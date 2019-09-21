@@ -33,4 +33,6 @@ struct PresetAnalyticalPKProblem{P,PK}
   pksol::PK
 end
 
+struct NullDEProblem <: DiffEqBase.DEProblem end
+
 export PKPDAnalyticalProblem, AnalyticalPKProblem

@@ -13,6 +13,10 @@ function DiffEqBase.solve(prob::PresetAnalyticalPKProblem,args...;kwargs...)
   return AnalyticalPKSolution(u,t,prob.pksol,numsol)
 end
 
+function DiffEqBase.solve(prob::NullDEProblem,args...;kwargs...)
+  return nothing
+end
+
 function _build_analytical_problem(m::PumasModel, subject::Subject, tspan, col,
                                    args...; kwargs...)
   f = m.prob isa ExplicitModel ? m.prob : m.prob.pkprob

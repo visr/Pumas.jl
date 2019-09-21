@@ -116,7 +116,7 @@ be repeated in the other API functions
 """
 function _problem(m::PumasModel, subject, col, args...;
                 tspan=nothing, saveat=Float64[], kwargs...)
-  m.prob === nothing && return nothing
+  m.prob === nothing && return NullDEProblem()
   if tspan === nothing
     tspan = float.(timespan(subject,tspan,saveat))
   end
@@ -182,7 +182,7 @@ to be repeated in the other API functions
   # at obstimes such that we can simply pass solution.u to m.derived
   _saveat = obstimes === nothing ? Float64[] : obstimes
   _prob = _problem(m, subject, collated, args...; saveat=_saveat, kwargs...)
-  if _prob === nothing
+  if _prob isa NullDEProblem
     dist = m.derived(collated, nothing, obstimes, subject)
   else
     sol = solve(_prob,args...;reltol=reltol, abstol=abstol, alg=alg, kwargs...)
@@ -227,8 +227,6 @@ function simobs(m::PumasModel, subject::Subject,
                 obstimes=observationtimes(subject),
                 saveat=obstimes,kwargs...)
   col = m.pre(param, randeffs, subject)
-  m.prob !== nothing && (isnothing(obstimes) || isempty(obstimes)) &&
-                          throw(ArgumentError("obstimes is empty."))
   prob = _problem(m, subject, col, args...; saveat=saveat, kwargs...)
   alg = m.prob isa ExplicitModel ? nothing : alg=AutoTsit5(Rosenbrock23())
   sol = prob !== nothing ? solve(prob, args...; alg=alg, kwargs...) : nothing
