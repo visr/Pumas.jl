@@ -89,7 +89,6 @@ param = (θ = θ,
     Σ_dv = 0.04,
     Σ_pddv = 1)
 
-@test_throws ArgumentError simobs(model, population[1], param, obstimes=Float64[])
 @test_throws MethodError conditional_nll(model, population[1], param, (η=zeros(9),))
 @test_throws MethodError conditional_nll(model, population[1])
 @test_nowarn simobs(model, population[1], param,obstimes=0.1:0.1:300.0)
