@@ -111,6 +111,6 @@ p_error = (θ = [1.5,  #Ka
            σ_prop = 0.00
   )
 
-@test_throws ArgumentError simobs(m_error, evm216, p_error)
+@test_throws ArgumentError simobs(m_error, evm216, p_error, ensemblealg = EnsembleSerial())
 
 end # testset

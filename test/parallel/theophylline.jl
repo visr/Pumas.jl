@@ -86,7 +86,6 @@ param = (
     Ω  = diagm(0 => [5.55, 0.0024, 0.515]), # update to block diagonal
     σ_add = 0.388
      )
-
 simobs(theopmodel_fo_a, theopp, param, ensemblealg = EnsembleSerial())
 simobs(theopmodel_fo_s, theopp, param, ensemblealg = EnsembleSerial())
 simobs(theopmodel_fo_a, theopp, param, ensemblealg = EnsembleThreads())
