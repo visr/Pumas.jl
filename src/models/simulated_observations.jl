@@ -36,6 +36,8 @@ function DataFrames.DataFrame(obs::SimulatedObservations;
         var[i1]
       end
     end
+    @show times
+    @show var
     df[!,k] = deepcopy(var)
   end
   obs_columns = [keys(obs.observed)...]

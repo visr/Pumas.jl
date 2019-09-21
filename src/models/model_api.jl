@@ -247,13 +247,16 @@ function simobs(m::PumasModel, pop::Population,
 
   function simobs_prob_func(prob,i,repeat)
     col = m.pre(param, randeffs, pop[i])
-    _problem(m,pop[i],col,args...;kwargs...)
+    obstimes = :obstimes ∈ keys(kwargs) ? kwargs[:obstimes] : observationtimes(pop[i])
+    saveat = :saveat ∈ keys(kwargs) ? kwargs[:saveat] : obstimes
+    _problem(m,pop[i],col,args...; saveat=saveat,kwargs...)
   end
 
   # TODO: Get rid of repeat calculations
   function simobs_output_func(sol,i)
     col = m.pre(param, randeffs, pop[i])
     obstimes = :obstimes ∈ keys(kwargs) ? kwargs[:obstimes] : observationtimes(pop[i])
+    saveat = :saveat ∈ keys(kwargs) ? kwargs[:saveat] : obstimes
     derived = m.derived(col,sol,obstimes,pop[i])
     obs = m.observed(col,sol,obstimes,map(_rand,derived),pop[i])
     SimulatedObservations(pop[i],obstimes,obs),false

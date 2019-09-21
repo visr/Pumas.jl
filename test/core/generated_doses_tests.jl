@@ -60,7 +60,8 @@ pop = Population([Subject(id = id,
             evs = DosageRegimen([10rand(), 20rand()],
             ii = 24, addl = 2, ss = 1:2, time = [0, 12],
             cmt = 2),cvs = cvs=(isPM="no", Wt=70)) for id in 1:10])
-pop_obs1 = simobs(m_diffeq, pop, param, randeffs)
+pop_obs1 = simobs(m_diffeq, pop[1], param, randeffs, ensemblealg = EnsembleSerial())
+pop_obs1 = simobs(m_diffeq, pop, param, randeffs, ensemblealg = EnsembleSerial())
 _data = DataFrame(pop_obs1)
 
 #=
