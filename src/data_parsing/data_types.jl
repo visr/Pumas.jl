@@ -393,12 +393,12 @@ function Base.show(io::IO, subject::Subject)
                      observables)
     println(io, "  Observables: $vals")
   end
-  if subject.covariates != Nothing
+  if subject.covariates != nothing
     if length(subject.covariates) > 10
       println(io, string("  Too many Covariates to display. Run DataFrame(Subject) to see the Covariates. "))
+    else
+      println(io, string("  Covariates: $(subject.covariates)"))
     end
-  else
-    println(io, string("  Covariates: $(subject.covariates)"))
   end
 end
 TreeViews.hastreeview(::Subject) = true
