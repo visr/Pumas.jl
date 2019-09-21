@@ -393,7 +393,7 @@ function Base.show(io::IO, subject::Subject)
                      observables)
     println(io, "  Observables: $vals")
   end
-  if length(subject.covariates) > 10
+  if subject.covariates != Nothing && length(subject.covariates) > 10
     println(io, string("  Too many Covariates to display. Run DataFrame(Subject) to see the Covariates. "))
   else
     println(io, string("  Covariates: $(subject.covariates)"))
