@@ -111,7 +111,11 @@ function predict_vivo(A::IVIVCModel, form)
     error("not implemented yet!!")
   end
   # ODE Formulation
-  f(c, p, t) = kel * all_auc_inf[1][form] * pmin[1] * pmin[2] * rate_fun(t * pmin[2], vitro_data[1][form].pmin) - kel * c
+  Tshift = 0.0
+  if length(pmin) > 2
+    Tshift = pmin[3]
+  end
+  f(c, p, t) = kel * all_auc_inf[1][form] * pmin[1] * pmin[2] * rate_fun(t * pmin[2] .- Tshift, vitro_data[1][form].pmin) - kel * c
   u0 = 0.0
   tspan = (vivo_data[1][form].time[1], vivo_data[1][form].time[end])
   prob = ODEProblem(f, u0, tspan)

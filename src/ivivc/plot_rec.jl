@@ -55,7 +55,7 @@ end
   @unpack vitro_data, vivo_data, fabs, pmin = model
   
   title  := "In Vitro In Vivo Plot"
-  xlabel := "Fdiss(t * Tscale)"
+  xlabel := "Fdiss(t * Tscale - Tshift)"
   ylabel := "FAbs Observed" 
   legend := :topleft
 
@@ -63,7 +63,12 @@ end
     @series begin
       seriestype --> :scatter
       label --> "$(form)"
-      vitro_data[1][form](prof.time * pmin[2]), fabs[1][form]
+      if length(pmin) > 2
+        t = prof.time * pmin[2] .- pmin[3]
+      else
+        t = prof.time * pmin[2]
+      end
+      vitro_data[1][form](t), fabs[1][form]
     end
   end
 
