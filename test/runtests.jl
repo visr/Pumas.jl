@@ -15,11 +15,15 @@ if group == "All" || group == "Core"
     include("core/runtests.jl")
 end
 
+if group == "All" || group == "Parallel"
+    include("parallel/runtests.jl")
+end
+
 if group == "All" || group == "NCA"
     include("nca/runtests.jl")
 end
 
-if group == "All" || group == "NLME_ML1" || group == "NLME_ML2" ||group == "NLME_BAYES"
+if group == "All" || occursin("NLME", group)
     include("nlme/runtests.jl")
 end
 

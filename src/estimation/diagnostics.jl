@@ -6,7 +6,7 @@ function StatsBase.residuals(model::PumasModel, subject::Subject, param::NamedTu
   rtrf = totransform(model.random(param))
   randeffs = TransformVariables.transform(rtrf, vrandeffs)
   # Calculated the dependent variable distribution objects
-  dist = derived_dist(model, subject, param, randeffs, args...; kwargs...)
+  dist = _derived(model, subject, param, randeffs, args...; kwargs...)
   # Return the residuals
   return residuals(subject, dist)
 end
@@ -129,11 +129,11 @@ function wres(m::PumasModel,
 
   randeffstransform = totransform(m.random(param))
   randeffs = TransformVariables.transform(randeffstransform, vrandeffsorth)
-  dist = derived_dist(m, subject, param, randeffs)
+  dist = _derived(m, subject, param, randeffs)
   F = ForwardDiff.jacobian(
     _vrandeffs -> begin
       _randeffs = TransformVariables.transform(randeffstransform, _vrandeffs)
-      return mean.(derived_dist(m, subject, param, _randeffs).dv)
+      return mean.(_derived(m, subject, param, _randeffs).dv)
     end,
     vrandeffsorth
   )
@@ -161,12 +161,12 @@ function cwres(m::PumasModel,
   randeffs0   = TransformVariables.transform(randeffstransform, zero(vrandeffsorth))
   randeffsEBE = TransformVariables.transform(randeffstransform, vrandeffsorth)
 
-  dist0   = derived_dist(m, subject, param, randeffs0)
-  distEBE = derived_dist(m, subject, param, randeffsEBE)
+  dist0   = _derived(m, subject, param, randeffs0)
+  distEBE = _derived(m, subject, param, randeffsEBE)
   F = ForwardDiff.jacobian(
     _vrandeffs -> begin
       _randeffs = TransformVariables.transform(randeffstransform, _vrandeffs)
-      return mean.(derived_dist(m, subject, param, _randeffs).dv)
+      return mean.(_derived(m, subject, param, _randeffs).dv)
     end,
     vrandeffsorth
   )
@@ -193,11 +193,11 @@ function cwresi(m::PumasModel,
 
   randeffstransform = totransform(m.random(param))
   randeffs = TransformVariables.transform(randeffstransform, vrandeffsorth)
-  dist = derived_dist(m, subject, param, randeffs)
+  dist = _derived(m, subject, param, randeffs)
   F = ForwardDiff.jacobian(
     _vrandeffs -> begin
       _randeffs = TransformVariables.transform(randeffstransform, _vrandeffs)
-      return mean.(derived_dist(m, subject, param, _randeffs).dv)
+      return mean.(_derived(m, subject, param, _randeffs).dv)
     end,
     vrandeffsorth
   )
@@ -222,7 +222,7 @@ function pred(m::PumasModel,
   end
 
   randeffs = TransformVariables.transform(totransform(m.random(param)), vrandeffsorth)
-  dist = derived_dist(m, subject, param, randeffs)
+  dist = _derived(m, subject, param, randeffs)
   return mean.(dist.dv)
 end
 
@@ -245,11 +245,11 @@ function cpred(m::PumasModel,
 
   randeffstransform = totransform(m.random(param))
   randeffs = TransformVariables.transform(randeffstransform, vrandeffsorth)
-  dist = derived_dist(m, subject, param, randeffs)
+  dist = _derived(m, subject, param, randeffs)
   F = ForwardDiff.jacobian(
     _vrandeffs -> begin
       _randeffs = TransformVariables.transform(randeffstransform, _vrandeffs)
-      mean.(derived_dist(m, subject, param, _randeffs).dv)
+      mean.(_derived(m, subject, param, _randeffs).dv)
     end,
     vrandeffsorth
   )
@@ -274,11 +274,11 @@ function cpredi(m::PumasModel,
 
   randeffstransform = totransform(m.random(param))
   randeffs = TransformVariables.transform(randeffstransform, vrandeffsorth)
-  dist = derived_dist(m, subject, param, randeffs)
+  dist = _derived(m, subject, param, randeffs)
   F = ForwardDiff.jacobian(
     _vrandeffs -> begin
       _randeffs = TransformVariables.transform(randeffstransform, _vrandeffs)
-      mean.(derived_dist(m, subject, param, _randeffs).dv)
+      mean.(_derived(m, subject, param, _randeffs).dv)
     end,
     vrandeffsorth
   )
@@ -316,7 +316,7 @@ function iwres(m::PumasModel,
    end
 
   randeffs = TransformVariables.transform(totransform(m.random(param)), vrandeffsorth)
-  dist = derived_dist(m, subject, param, randeffs)
+  dist = _derived(m, subject, param, randeffs)
   return residuals(subject, dist) ./ std.(dist.dv)
 end
 
@@ -339,8 +339,8 @@ function icwres(m::PumasModel,
   randeffstransform = totransform(m.random(param))
   randeffs0   = TransformVariables.transform(randeffstransform, zero(vrandeffsorth))
   randeffsEBE = TransformVariables.transform(randeffstransform, vrandeffsorth)
-  dist0 = derived_dist(m, subject, param, randeffs0)
-  dist = derived_dist(m, subject, param, randeffsEBE)
+  dist0 = _derived(m, subject, param, randeffs0)
+  dist = _derived(m, subject, param, randeffsEBE)
   return residuals(subject, dist) ./ std.(dist0.dv)
 end
 
@@ -361,7 +361,7 @@ function icwresi(m::PumasModel,
   end
 
   randeffs = TransformVariables.transform(totransform(m.random(param)), vrandeffsorth)
-  dist = derived_dist(m, subject, param, randeffs)
+  dist = _derived(m, subject, param, randeffs)
   return residuals(subject, dist) ./ std.(dist.dv)
 end
 
@@ -377,10 +377,10 @@ function eiwres(m::PumasModel,
                 args...;
                 kwargs...)
   yi = subject.observations.dv
-  dist = derived_dist(m, subject, param, sample_randeffs(m, param), args...; kwargs...)
+  dist = _derived(m, subject, param, sample_randeffs(m, param), args...; kwargs...)
   sims_sum = (yi .- mean.(dist.dv))./std.(dist.dv)
   for i in 2:nsim
-    dist = derived_dist(m, subject, param, sample_randeffs(m, param), args...; kwargs...)
+    dist = _derived(m, subject, param, sample_randeffs(m, param), args...; kwargs...)
     sims_sum .+= (yi .- mean.(dist.dv))./std.(dist.dv)
   end
   return sims_sum ./ nsim
@@ -398,7 +398,7 @@ function ipred(m::PumasModel,
   end
 
   randeffs = TransformVariables.transform(totransform(m.random(param)), vrandeffsorth)
-  dist = derived_dist(m, subject, param, randeffs, args...; kwargs...)
+  dist = _derived(m, subject, param, randeffs, args...; kwargs...)
   return mean.(dist.dv)
 end
 
@@ -414,7 +414,7 @@ function cipred(m::PumasModel,
   end
 
   randeffs = TransformVariables.transform(totransform(m.random(param)), vrandeffsorth)
-  dist = derived_dist(m, subject, param, randeffs, args...; kwargs...)
+  dist = _derived(m, subject, param, randeffs, args...; kwargs...)
   return mean.(dist.dv)
 end
 
@@ -430,7 +430,7 @@ function cipredi(m::PumasModel,
   end
 
   randeffs = TransformVariables.transform(totransform(m.random(param)), vrandeffsorth)
-  dist = derived_dist(m, subject, param, randeffs, args...; kwargs...)
+  dist = _derived(m, subject, param, randeffs, args...; kwargs...)
   return mean.(dist.dv)
 end
 

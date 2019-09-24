@@ -1,4 +1,4 @@
-using Pumas, Test, LinearAlgebra
+using Pumas, Test
 
 @testset "Test with missing values" begin
 
@@ -97,11 +97,9 @@ using Pumas, Test, LinearAlgebra
   @testset "testing model: $_model, with $_approx approximation" for
     _model in ("additive", "proportional", "exponential"),
       _approx in (Pumas.FO(), Pumas.FOCE(), Pumas.FOCEI(), Pumas.Laplace(), Pumas.LaplaceI())
-
-    if _model == "proportional" && _approx == Pumas.LaplaceI()
-      # Hessian in random effects beecome indfinite
-      @test_broken fit(model[_model], data, param, _approx) isa Pumas.FittedPumasModel
-    else
+    # LaplaceI and proportional is very unstable and succeeds/fails depending on architecture
+    # so we can't mark this as @test_broken
+    if _model != "proportional" || _approx != Pumas.LaplaceI()
       @test deviance(fit(model[_model], data, param, _approx)) == deviance(fit(model[_model], data_missing, param, _approx))
     end
   end

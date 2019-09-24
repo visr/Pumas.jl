@@ -297,7 +297,9 @@ function DataFrames.DataFrame(subject::Subject; include_covariates=true, include
 
   # Generate the name for the dependent variable in a manner consistent with
   # multiple dvs etc
-  if !isnothing(subject.time)
+  if isnothing(subject.time)
+    df_events = hcat(DataFrame(id = fill(subject.id, length(df_events.evid))), df_events)
+  else
     df = DataFrame(id = fill(subject.id, length(subject.time)), time=subject.time)
     df[!, :evid] .= 0
     # Only include the dv columns if include_dvs is specified and there are
@@ -391,6 +393,13 @@ function Base.show(io::IO, subject::Subject)
                      observables)
     println(io, "  Observables: $vals")
   end
+  if subject.covariates != nothing
+    if length(subject.covariates) > 10
+      println(io, string("  Too many Covariates to display. Run DataFrame(Subject) to see the Covariates. "))
+    else
+      println(io, string("  Covariates: $(subject.covariates)"))
+    end
+  end
 end
 TreeViews.hastreeview(::Subject) = true
 function TreeViews.treelabel(io::IO, subject::Subject, mime::MIME"text/plain")
@@ -421,7 +430,7 @@ end
 """
 A `Population` is an `AbstractVector` of `Subject`s.
 """
-Population{T} = AbstractVector{T} where T<:Subject
+const Population{T} = AbstractVector{T} where T<:Subject
 Population(obj::Population...) = reduce(vcat, obj)::Population
 
 function DataFrames.DataFrame(pop::Population; include_covariates=true, include_dvs=true)

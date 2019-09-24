@@ -117,7 +117,12 @@ sim_analytic = begin
 end
 @test sim_diffeq ≈ sim_analytic rtol=1e-4
 
-sol_diffeq = solve(m_diffeq,data,param, parallel_type = Pumas.Serial)
-sol_diffeq = solve(m_diffeq,data,param, parallel_type = Pumas.Threading)
-sol_diffeq = solve(m_diffeq,data,param, parallel_type = Pumas.Distributed)
-@test_broken sol_diffeq = solve(m_diffeq,data,param, parallel_type = Pumas.SplitThreads)
+sol_diffeq = solve(m_diffeq,data,param,ensemblealg = EnsembleSerial())
+sol_diffeq = solve(m_diffeq,data,param,ensemblealg = EnsembleThreads())
+sol_diffeq = solve(m_diffeq,data,param,ensemblealg = EnsembleSplitThreads())
+sol_diffeq = solve(m_diffeq,data,param,ensemblealg = EnsembleDistributed())
+
+sol_diffeq = simobs(m_diffeq,data,param,ensemblealg = EnsembleSerial())
+sol_diffeq = simobs(m_diffeq,data,param,ensemblealg = EnsembleThreads())
+sol_diffeq = simobs(m_diffeq,data,param,ensemblealg = EnsembleSplitThreads())
+sol_diffeq = simobs(m_diffeq,data,param,ensemblealg = EnsembleDistributed())

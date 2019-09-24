@@ -39,6 +39,20 @@ test-core:
   - external
   - pushes
 
+test-parallel:
+  stage: test
+  variables:
+    GROUP: "Parallel"
+  script:
+    - julia -e 'using InteractiveUtils;
+                versioninfo()'
+    - julia --project -e 'using Pkg;
+                          Pkg.test("Pumas"; coverage=true);'
+  only:
+  - master
+  - tags
+  - external
+  - pushes
 
 test-nca:
   stage: test
@@ -55,6 +69,21 @@ test-nca:
   - external
   - pushes
 
+
+test-nlme-basic:
+  stage: test
+  variables:
+    GROUP: "NLME_Basic"
+  script:
+    - julia -e 'using InteractiveUtils;
+                versioninfo()'
+    - julia --project -e 'using Pkg;
+                          Pkg.test("Pumas"; coverage=true);'
+  only:
+    - master
+    - tags
+    - external
+    - pushes
 
 test-nlme-ml1:
   stage: test
@@ -90,7 +119,6 @@ test-nlme-bayes:
   stage: test
   variables:
     GROUP: "NLME_BAYES"
-    BAYES_N: 100
   script:
     - julia -e 'using InteractiveUtils;
                 versioninfo()'

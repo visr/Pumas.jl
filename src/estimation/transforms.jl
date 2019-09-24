@@ -1,3 +1,4 @@
+using LinearAlgebra: Cholesky, copytri!
 import TransformVariables
 using TransformVariables: as, asℝ₊, ∞
 
@@ -126,7 +127,7 @@ function TransformVariables.transform_with(flag::TransformVariables.LogJacFlag, 
       error("not support")
     end
   end
-  (LinearAlgebra.copytri!(M, 'L')), ℓ
+  copytri!(M, 'L'), ℓ
 end
 
 TransformVariables.inverse_eltype(::VechTransform, y::PDMat{T}) where T = T
@@ -237,14 +238,14 @@ end
 
 totransform(d::ConstDomain) = ConstantTransform(d.val)
 function totransform(d::RealDomain)
-  if d.lower == -Inf
-    if d.upper == Inf
+  if d.lower === -∞
+    if d.upper === ∞
       as(Real,-∞,∞)
     else
       as(Real,-∞,d.upper)
     end
   else
-    if d.upper == Inf
+    if d.upper === ∞
       as(Real,d.lower,∞)
     else
       as(Real,d.lower,d.upper)
@@ -284,10 +285,14 @@ totransform(d::MvNormal) = MvNormalTransform(d)
 TransformVariables.dimension(t::MvNormalTransform) = length(t.d)
 function TransformVariables.transform_with(flag::TransformVariables.LogJacFlag, t::MvNormalTransform,
                                            x::TransformVariables.RealVector{T}) where T
+  if !(flag isa TransformVariables.NoLogJac)
+    ℓ = logdet(t.d.Σ)/2
+  else
     ℓ = TransformVariables.logjac_zero(flag, T)
-    # FIXME! This promotion should happen in PDMats
-    TT = promote_type(T, eltype(t.d.Σ))
-    return unwhiten(t.d.Σ, convert(AbstractArray{TT}, x)) + mean(t.d), ℓ
+  end
+  # FIXME! This promotion should happen in PDMats
+  TT = promote_type(T, eltype(t.d.Σ))
+  return unwhiten(t.d.Σ, convert(AbstractArray{TT}, x)) + mean(t.d), ℓ
 end
 TransformVariables.inverse_eltype(::MvNormalTransform, y::AbstractVector{T}) where T = T
 function TransformVariables.inverse!(x::AbstractVector, t::MvNormalTransform, y::AbstractVector)

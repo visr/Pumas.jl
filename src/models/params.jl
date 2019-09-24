@@ -1,4 +1,3 @@
-using LinearAlgebra
 export ParamSet, ConstDomain, RealDomain, VectorDomain, PSDDomain, PDiagDomain, Constrained
 
 abstract type Domain end
@@ -17,34 +16,34 @@ end
 init(d::ConstDomain) = d.val
 
 """
-    @param x ∈ RealDomain(;lower=-Inf,upper=+Inf,init=0)
+    @param x ∈ RealDomain(;lower=-∞,upper=∞,init=0)
 
 Specifies a parameter as a real value. `lower` and `upper` are the respective bounds, `init` is the value used as the initial guess in the optimisation.
 """
-struct RealDomain{T} <: Domain
-  lower::T
-  upper::T
+struct RealDomain{L,U,T} <: Domain
+  lower::L
+  upper::U
   init::T
 end
-RealDomain(;lower=-Inf,upper=+Inf,init=0.) = RealDomain(promote(lower, upper, init)...)
+RealDomain(;lower=-∞,upper=∞,init=0.) = RealDomain(lower, upper, init)
 init(d::RealDomain) = d.init
 
 
 """
-    @param x ∈ VectorDomain(n::Int; lower=-Inf,upper=+Inf,init=0)
+    @param x ∈ VectorDomain(n::Int; lower=-∞,upper=∞,init=0)
 
 Specifies a parameter as a real vector of length `n`. `lower` and `upper` are the respective bounds, `init` is the value used as the initial guess in the optimisation.
 """
-struct VectorDomain{L,T} <: Domain
+struct VectorDomain{L,U,T} <: Domain
   lower::L
-  upper::L
+  upper::U
   init::T
 end
 
 _vec(n, x::AbstractVector) = x
 _vec(n, x) = fill(x, n)
 
-VectorDomain(n::Int; lower=-Inf,upper=+Inf,init=0.0) = VectorDomain(promote(_vec(n,lower), _vec(n,upper))..., _vec(n,init))
+VectorDomain(n::Int; lower=-∞,upper=∞,init=0.0) = VectorDomain(_vec(n,lower), _vec(n,upper), _vec(n,init))
 
 init(d::VectorDomain) = d.init
 
@@ -81,7 +80,7 @@ init(d::PDiagDomain) = d.init
 # domains of random variables
 function Domain(d::MvNormal)
   n = length(d)
-  VectorDomain(fill(-Inf, n), fill(Inf, n), mean(d))
+  VectorDomain(fill(-∞, n), fill(∞, n), mean(d))
 end
 Domain(d::InverseWishart) = PSDDomain(Distributions.dim(d))
 
@@ -113,10 +112,10 @@ struct Constrained{D<:Distribution,M<:Domain}
   domain::M
 end
 
-Constrained(dist::MvNormal; lower=-Inf, upper=Inf, init=0.0) =
+Constrained(dist::MvNormal; lower=-∞, upper=∞, init=0.0) =
   Constrained(dist, VectorDomain(length(dist); lower=lower, upper=upper, init=init))
 
-Constrained(dist::ContinuousUnivariateDistribution; lower=-Inf, upper=Inf, init=0.0) =
+Constrained(dist::ContinuousUnivariateDistribution; lower=-∞, upper=∞, init=0.0) =
   Constrained(dist, RealDomain(; lower=lower, upper=upper, init=init))
 
 Domain(c::Constrained) = c.domain

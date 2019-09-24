@@ -1,7 +1,6 @@
 using Test
-using Pumas
+using Pumas, LinearAlgebra
 
-@testset "args and kwargs" begin
 data = read_pumas(example_data("sim_data_model1"))
 #-----------------------------------------------------------------------# Test 1
 mdsl1 = @model begin
@@ -32,15 +31,6 @@ mdsl1 = @model begin
 end
 
 param = init_param(mdsl1)
-
-ft_no_args = fit(mdsl1, data, param, Pumas.FOCEI())
-@test isempty(pairs(ft_no_args.args))
-@test isempty(pairs(ft_no_args.kwargs))
-
-ft_alg_kwargs = fit(mdsl1, data, param, Pumas.FOCEI(); alg=Rosenbrock23())
-@test isempty(pairs(ft_alg_kwargs.args))
-kwarg_pairs = pairs(ft_alg_kwargs.kwargs)
-@test keys(kwarg_pairs) == (:alg,)
-@test kwarg_pairs[1] == Rosenbrock23()
-
+@testset "parallel_type = $p" for p in (Pumas.Serial, Pumas.Threading, Pumas.Distributed)
+    @test deviance(mdsl1, data, param, Pumas.FO(), parallel_type=p) ≈ 56.474912258255571 rtol=1e-6
 end

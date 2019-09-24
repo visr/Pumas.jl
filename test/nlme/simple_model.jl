@@ -1,5 +1,5 @@
 using Test
-using Pumas, LinearAlgebra
+using Pumas
 
 @testset "likelihood tests from NLME.jl" begin
 data = read_pumas(example_data("sim_data_model1"))
@@ -47,12 +47,6 @@ end
 @test deviance(mdsl1, data, param, Pumas.LaplaceI())  ≈ 56.810343602063618 rtol=1e-6
 @test deviance(mdsl1, data, param, Pumas.HCubeQuad()) ≈ 56.92491372848633  rtol=1e-6 #regression test
 
-# FIXME! Distributed testing should use multiple processes instead of just testing
-# the code path
-@testset "parallel_type = $p" for p in (Pumas.Serial, Pumas.Threading, Pumas.Distributed)
-    @test deviance(mdsl1, data, param, Pumas.FO(), parallel_type=p) ≈ 56.474912258255571 rtol=1e-6
-end
-
 ft = fit(mdsl1, data, param, Pumas.FOCEI())
 @test sprint((io, t) -> show(io, MIME"text/plain"(), t), ft) ==
 """
@@ -74,51 +68,4 @@ Number of subjects:                       10
 Σ         0.1
 ------------------
 """
-
-# Supporting outer AD optimization makes it harder to store the
-# EBEs since their type changes during AD optimization so for
-# the time being these tests are disabled.
-# ofn = function (cost,p)
-#   Optim.optimize(cost,p,BFGS(linesearch=Optim.LineSearches.BackTracking()),
-#                  Optim.Options(show_trace=false, # Print progress
-#                                store_trace=true,
-#                                extended_trace=true,
-#                                g_tol=1e-3),
-#                   autodiff=:finite)
-# end
-#
-# @test fit(mdsl1, data, init_param(mdsl1), Pumas.LaplaceI(), optimize_fn=ofn) isa Pumas.FittedPumasModel
-#
-# ofn2 = function (cost,p)
-#   Optim.optimize(cost,p,Newton(linesearch=Optim.LineSearches.BackTracking()),
-#                  Optim.Options(show_trace=false, # Print progress
-#                                store_trace=true,
-#                                extended_trace=true,
-#                                g_tol=1e-3),
-#                   autodiff=:finite)
-# end
-#
-# @test fit(mdsl1, data, init_param(mdsl1), Pumas.LaplaceI(), optimize_fn=ofn2) isa Pumas.FittedPumasModel
-#
-# ofn3 = function (cost,p)
-#   Optim.optimize(cost,p,BFGS(linesearch=Optim.LineSearches.BackTracking()),
-#                  Optim.Options(show_trace=false, # Print progress
-#                                store_trace=true,
-#                                extended_trace=true,
-#                                g_tol=1e-3),
-#                   autodiff=:forward)
-# end
-#
-# @test fit(mdsl1, data, init_param(mdsl1), Pumas.LaplaceI(), optimize_fn=ofn3) isa Pumas.FittedPumasModel
-#
-# ofn4 = function (cost,p)
-#   Optim.optimize(cost,p,Newton(linesearch=Optim.LineSearches.BackTracking()),
-#                  Optim.Options(show_trace=false, # Print progress
-#                                store_trace=true,
-#                                extended_trace=true,
-#                                g_tol=1e-3),
-#                   autodiff=:forward)
-# end
-#
-# @test fit(mdsl1, data, init_param(mdsl1), Pumas.LaplaceI(), optimize_fn=ofn4) isa Pumas.FittedPumasModel
 end# testset
