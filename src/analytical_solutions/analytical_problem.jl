@@ -37,4 +37,12 @@ struct NullDEProblem{P} <: DiffEqBase.DEProblem
   p::P
 end
 
+Base.summary(prob::NullDEProblem) = string(DiffEqBase.TYPE_COLOR, nameof(typeof(prob)),
+                                                   DiffEqBase.NO_COLOR)
+
+function Base.show(io::IO, A::NullDEProblem)
+  println(io,summary(A.p))
+  println(io)
+end
+
 export PKPDAnalyticalProblem, AnalyticalPKProblem

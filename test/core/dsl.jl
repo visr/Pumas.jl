@@ -182,6 +182,6 @@ end
 param = init_param(mdsl)
 randeffs = init_randeffs(mdsl, param)
 
-@test solve(mdsl,subject,param,randeffs) === nothing
+@test solve(mdsl,subject,param,randeffs) isa Pumas.NullDESolution
 @test simobs(mdsl,subject,param,randeffs) != nothing
 @test conditional_nll(mdsl,subject,param,randeffs) == Inf # since real-valued observations

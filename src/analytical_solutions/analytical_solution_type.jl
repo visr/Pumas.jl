@@ -126,6 +126,14 @@ function (sol::AnalyticalPKSolution)(ts::AbstractArray,deriv::Type{<:Val}=Val{0}
   end
 end
 
-struct NullDESolution{T,N,uType,tType,dType,rType,pType,P} <: DiffEqBase.AbstractAnalyticalSolution{T,N}
+struct NullDESolution{P} <: DiffEqBase.AbstractAnalyticalSolution{Any,1}
   prob::P
+end
+
+Base.summary(A::NullDESolution) = "NullDESolution"
+function Base.show(io::IO, A::NullDESolution)
+  print(io,"NullDESolution")
+end
+function Base.show(io::IO, m::MIME"text/plain", A::NullDESolution)
+  print(io,"NullDESolution")
 end

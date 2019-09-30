@@ -32,7 +32,7 @@ using Pumas, Test
   param = init_param(poisson_model)
   randeffs = init_randeffs(poisson_model, param)
 
-  @test solve(poisson_model, df[1], param, randeffs) === nothing
+  @test solve(poisson_model, df[1], param, randeffs) isa Pumas.NullDESolution
   @test simobs(poisson_model, df, param,randeffs) != nothing
 
   res = simobs(poisson_model, df, param, randeffs)
