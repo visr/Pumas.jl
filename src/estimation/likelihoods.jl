@@ -164,16 +164,11 @@ function penalized_conditional_nll(m::PumasModel,
                                    randeffs::NamedTuple,
                                    args...;kwargs...)
 
-  # First evaluate the penalty
-  rfxset = m.random(param)
-  nl_randeffs = -_lpdf(rfxset.params, randeffs)
 
-  # If penalty is too large (likelihood would be Inf) then return without evaluating conditional likelihood
-  if nl_randeffs > log(floatmax(Float64))
-    return nl_randeffs
-  else
-    return conditional_nll(m, subject, param, randeffs, args...;kwargs...) + nl_randeffs
-  end
+  randeffstransform = totransform(m.random(param))
+  vrandeffsorth = TransformVariables.inverse(randeffstransform, vrandeffsorth)
+
+  return penalized_conditional_nll(m, subject, param, vrandeffsorth, args...; kwargs...)
 end
 
 function penalized_conditional_nll(m::PumasModel,
@@ -182,9 +177,17 @@ function penalized_conditional_nll(m::PumasModel,
                                    vrandeffsorth::AbstractVector,
                                    args...;kwargs...)
 
-  randeffstransform = totransform(m.random(param))
-  randeffs = TransformVariables.transform(randeffstransform, vrandeffsorth)
-  return penalized_conditional_nll(m, subject, param, randeffs, args...; kwargs...)
+  # First evaluate the penalty (wihout the π term)
+  nl_randeffs = vrandeffsorth'vrandeffsorth/2
+
+  # If penalty is too large (likelihood would be Inf) then return without evaluating conditional likelihood
+  if nl_randeffs > log(floatmax(Float64))
+    return nl_randeffs
+  else
+    randeffstransform = totransform(m.random(param))
+    randeffs = TransformVariables.transform(randeffstransform, vrandeffsorth)
+    return conditional_nll(m, subject, param, randeffs, args...;kwargs...) + nl_randeffs
+  end
 end
 
 function _initial_randeffs(m::PumasModel, param::NamedTuple)
@@ -239,12 +242,11 @@ function _orth_empirical_bayes!(
   fdrelstep=_fdrelstep(m, param, reltol, fdtype),
   kwargs...)
 
-  randeffstransform = totransform(m.random(param))
   cost = vηorth -> penalized_conditional_nll(
     m,
     subject,
     param,
-    TransformVariables.transform(randeffstransform, vηorth),
+    vηorth,
     approx,
     args...;
     reltol=reltol,
@@ -532,7 +534,7 @@ StatsBase.deviance(m::PumasModel,
 function marginal_nll_gradient!(g::AbstractVector,
                                 model::PumasModel,
                                 subject::Subject,
-                                param::NamedTuple,
+                                vparam::AbstractVector,
                                 vrandeffsorth::AbstractVector,
                                 approx::Union{FOCE,FOCEI,Laplace,LaplaceI},
                                 trf::TransformVariables.TransformTuple,
@@ -540,21 +542,20 @@ function marginal_nll_gradient!(g::AbstractVector,
                                 # We explicitly use reltol to compute the right step size for finite difference based gradient
                                 reltol=DEFAULT_ESTIMATION_RELTOL,
                                 fdtype=Val{:central}(),
-                                fdrelstep=_fdrelstep(model, param, reltol, fdtype),
+                                fdrelstep=_fdrelstep(model, vparam, reltol, fdtype),
                                 fdabsstep=fdrelstep^2,
                                 kwargs...
                                 )
 
-  vparam = TransformVariables.inverse(trf, param)
-  randeffstransform = totransform(model.random(param))
+  param = TransformVariables.transform(trf, vparam)
 
   # Compute first order derivatives of the marginal likelihood function
   # with finite differencing to save compute time
   ∂ℓᵐ∂θ = DiffEqDiffTools.finite_difference_gradient(
-    _param -> marginal_nll(
+    _vparam -> marginal_nll(
       model,
       subject,
-      TransformVariables.transform(trf, _param),
+      TransformVariables.transform(trf, _vparam),
       vrandeffsorth,
       approx,
       args...;
@@ -588,7 +589,7 @@ function marginal_nll_gradient!(g::AbstractVector,
       model,
       subject,
       param,
-      TransformVariables.transform(randeffstransform, vηorth),
+      vηorth,
       approx,
       args...;
       reltol=reltol,
@@ -597,15 +598,14 @@ function marginal_nll_gradient!(g::AbstractVector,
   )
 
   ∂²ℓᵖ∂η∂θ = ForwardDiff.jacobian(
-    _vθ -> begin
-      _θ = TransformVariables.transform(trf, _vθ)
-      _randeffstransform = totransform(model.random(_θ))
+    _vparam -> begin
+      _param = TransformVariables.transform(trf, _vparam)
       ForwardDiff.gradient(
         vηorth -> penalized_conditional_nll(
           model,
           subject,
-          _θ,
-          TransformVariables.transform(_randeffstransform, vηorth),
+          _param,
+          vηorth,
           approx,
           args...;
           reltol=reltol,
@@ -623,14 +623,14 @@ function marginal_nll_gradient!(g::AbstractVector,
   return g
 end
 
-function _fdrelstep(model::PumasModel, param::NamedTuple, reltol, ::Val{:forward})
+function _fdrelstep(model::PumasModel, param, reltol, ::Val{:forward})
   if model.prob isa ExplicitModel
     return sqrt(eps(numtype(param)))
   else
     return max(norm(reltol), sqrt(eps(numtype(param))))
   end
 end
-function _fdrelstep(model::PumasModel, param::NamedTuple, reltol, ::Val{:central})
+function _fdrelstep(model::PumasModel, param, reltol, ::Val{:central})
   if model.prob isa ExplicitModel
     return cbrt(eps(numtype(param)))
   else
@@ -644,15 +644,15 @@ end
 function marginal_nll_gradient!(g::AbstractVector,
                                 model::PumasModel,
                                 subject::Subject,
-                                param::NamedTuple,
-                                vvrandeffsorth::AbstractVector,
+                                vparam::AbstractVector,
+                                vrandeffsorth::AbstractVector,
                                 approx::Union{NaivePooled,FO,FOI,HCubeQuad},
                                 trf::TransformVariables.TransformTuple,
                                 args...;
                                 # We explicitly use reltol to compute the right step size for finite difference based gradient
                                 reltol=DEFAULT_ESTIMATION_RELTOL,
                                 fdtype=Val{:central}(),
-                                fdrelstep=_fdrelstep(model, param, reltol, fdtype),
+                                fdrelstep=_fdrelstep(model, vparam, reltol, fdtype),
                                 fdabsstep=fdrelstep^2,
                                 kwargs...
                                 )
@@ -660,17 +660,17 @@ function marginal_nll_gradient!(g::AbstractVector,
   # Compute first order derivatives of the marginal likelihood function
   # with finite differencing to save compute time
   g .= DiffEqDiffTools.finite_difference_gradient(
-    _param -> marginal_nll(
+    _vparam -> marginal_nll(
       model,
       subject,
-      TransformVariables.transform(trf, _param),
-      vvrandeffsorth,
+      TransformVariables.transform(trf, _vparam),
+      vrandeffsorth,
       approx,
       args...;
       reltol=reltol,
       kwargs...
     ),
-    TransformVariables.inverse(trf, param),
+    vparam,
     typeof(fdtype);
     relstep=fdrelstep,
     absstep=fdabsstep
@@ -682,7 +682,7 @@ end
 function marginal_nll_gradient!(g::AbstractVector,
                                 model::PumasModel,
                                 population::Population,
-                                param::NamedTuple,
+                                vparam::AbstractVector,
                                 vvrandeffsorth::AbstractVector,
                                 approx::LikelihoodApproximation,
                                 trf::TransformVariables.TransformTuple,
@@ -700,7 +700,7 @@ function marginal_nll_gradient!(g::AbstractVector,
       _g,
       model,
       subject,
-      param,
+      vparam,
       vrandeffsorth,
       approx,
       trf, args...; kwargs...)
@@ -1091,12 +1091,12 @@ function Distributions.fit(m::PumasModel,
   end
   # Define cost function for the optimization
   cost = Optim.NLSolversBase.OnceDifferentiable(
-    Optim.NLSolversBase.only_fg!() do f, g, vx
+    Optim.NLSolversBase.only_fg!() do f, g, _vparam
       # The negative loglikelihood function
       # Update the Empirical Bayes Estimates explicitly after each iteration
 
       # Convert vector to NamedTuple
-      x = TransformVariables.transform(fixedtrf, vx)
+      _param = TransformVariables.transform(fixedtrf, _vparam)
 
       # Sum up loglikelihood contributions
       nll = sum(zip(population, vvrandeffsorth, vvrandeffsorth_tmp)) do (subject, vrandefforths, vrandefforths_tmp)
@@ -1104,14 +1104,14 @@ function Distributions.fit(m::PumasModel,
         # and store the retult in vvrandeffsorth_tmp
         if !(approx isa FO || approx isa NaivePooled)
           copyto!(vrandefforths_tmp, vrandefforths)
-          _orth_empirical_bayes!(vrandefforths_tmp, m, subject, x, approx, args...; kwargs...)
+          _orth_empirical_bayes!(vrandefforths_tmp, m, subject, _param, approx, args...; kwargs...)
         end
-        marginal_nll(m, subject, x, vrandefforths_tmp, approx, args...; kwargs...)
+        marginal_nll(m, subject, _param, vrandefforths_tmp, approx, args...; kwargs...)
       end
 
       # Update score
       if g !== nothing
-        marginal_nll_gradient!(g, m, population, x, vvrandeffsorth_tmp, approx, fixedtrf, args...; kwargs...)
+        marginal_nll_gradient!(g, m, population, _vparam, vvrandeffsorth_tmp, approx, fixedtrf, args...; kwargs...)
       end
 
       return nll
@@ -1190,8 +1190,8 @@ function _observed_information(f::FittedPumasModel,
   param = coef(f)
   vparam = TransformVariables.inverse(trf, param)
 
-  fdrelstep_score = _fdrelstep(f.model, param, reltol, Val{:central}())
-  fdrelstep_hessian = sqrt(_fdrelstep(f.model, param, reltol, Val{:central}()))
+  fdrelstep_score = _fdrelstep(f.model, vparam, reltol, Val{:central}())
+  fdrelstep_hessian = sqrt(_fdrelstep(f.model, vparam, reltol, Val{:central}()))
 
   # Initialize arrays
   H = zeros(eltype(vparam), length(vparam), length(vparam))
@@ -1210,14 +1210,14 @@ function _observed_information(f::FittedPumasModel,
     H .+= DiffEqDiffTools.finite_difference_jacobian(vparam,
                                                      Val{:central};
                                                      relstep=fdrelstep_hessian,
-                                                     absstep=fdrelstep_hessian^2) do _j, _param
-      param = TransformVariables.transform(trf, _param)
-      vrandeffsorth = _orth_empirical_bayes(f.model, subject, param, f.approx, args...; kwargs...)
+                                                     absstep=fdrelstep_hessian^2) do _j, _vparam
+      _param = TransformVariables.transform(trf, _vparam)
+      vrandeffsorth = _orth_empirical_bayes(f.model, subject, _param, f.approx, args...; kwargs...)
       marginal_nll_gradient!(
         _j,
         f.model,
         subject,
-        param,
+        _vparam,
         vrandeffsorth,
         f.approx,
         trf,
@@ -1237,7 +1237,7 @@ function _observed_information(f::FittedPumasModel,
         g,
         f.model,
         subject,
-        coef(f),
+        vparam,
         vrandeffsorth,
         f.approx,
         trf,

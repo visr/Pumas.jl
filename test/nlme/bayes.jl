@@ -47,7 +47,7 @@ theopp = read_pumas(example_data("event_data/THEOPP"),cvs = [:WT,:SEX])
     ldp = Pumas.BayesLogDensity(theopmodel_bayes, theopp)
     vparam_aug = [vparam; zeros(length(theopp)*ldp.dim_rfx)]
     v = Pumas.logdensity(ldp, vparam_aug)
-    @test v ≈ -612.6392449413322
+    @test v ≈ -612.6392449413322 + log(2π)/2*length(theopp)
     vg = Pumas.logdensitygrad(ldp, vparam_aug)
     @test vg[1] ≈ v
     @test vg[2] ≈ [8.023571333788356
@@ -194,7 +194,7 @@ end
                                  reltol = 1e-12, abstol = 1e-12)
     vparam2_aug = [vparam2; zeros(length(theopp)*ldp2.dim_rfx)]
     v2 = Pumas.logdensity(ldp2, vparam2_aug)
-    @test v2 ≈ -612.6392449413325 rtol=1e-6
+    @test v2 ≈ -612.6392449413325  + log(2π)/2*length(theopp) rtol=1e-6
     vg2 = Pumas.logdensitygrad(ldp2, vparam2_aug)
     @test vg2[1] ≈ v2
     @test vg2[2] ≈ [8.023571333787114,
