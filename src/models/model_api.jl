@@ -87,8 +87,8 @@ function DiffEqBase.solve(m::PumasModel, subject::Subject,
                           randeffs = sample_randeffs(m, param),
                           saveat = observationtimes(subject),
                           args...; kwargs...)
-  m.prob === nothing && return nothing
   col = m.pre(param, randeffs, subject)
+  m.prob === nothing && return NullDESolution(NullDEProblem(col))
   prob = _problem(m,subject,col,args...;saveat=saveat,kwargs...)
   alg = m.prob isa ExplicitModel ? nothing : alg=AutoTsit5(Rosenbrock23())
   solve(prob,args...;alg=alg,kwargs...)
@@ -96,14 +96,15 @@ end
 
 function DiffEqBase.solve(m::PumasModel, pop::Population,
                           param = init_param(m),
-                          randeffs = sample_randeffs(m, param),
+                          randeffs = nothing,
                           args...;
                           alg=AutoTsit5(Rosenbrock23()),
                           ensemblealg = EnsembleThreads(),
                           kwargs...)
 
   function solve_prob_func(prob,i,repeat)
-    col = m.pre(param, randeffs, pop[i])
+    _randeffs = randeffs === nothing ? sample_randeffs(m, param) : randeffs
+    col = m.pre(param, _randeffs, pop[i])
     _problem(m,pop[i],col,args...;kwargs...)
   end
   prob = EnsembleProblem(m.prob,prob_func = solve_prob_func)
@@ -116,7 +117,7 @@ be repeated in the other API functions
 """
 function _problem(m::PumasModel, subject, col, args...;
                 tspan=nothing, saveat=Float64[], kwargs...)
-  m.prob === nothing && return NullDEProblem()
+  m.prob === nothing && return NullDEProblem(col)
   if tspan === nothing
     tspan = float.(timespan(subject,tspan,saveat))
   end
@@ -237,22 +238,22 @@ end
 
 function simobs(m::PumasModel, pop::Population,
                 param = init_param(m),
-                randeffs=sample_randeffs(m, param),
+                randeffs=nothing,
                 args...;
                 alg=AutoTsit5(Rosenbrock23()),
                 ensemblealg = EnsembleThreads(),
                 kwargs...)
 
   function simobs_prob_func(prob,i,repeat)
-    col = m.pre(param, randeffs, pop[i])
+    _randeffs = randeffs === nothing ? sample_randeffs(m, param) : randeffs
+    col = m.pre(param, _randeffs, pop[i])
     obstimes = :obstimes ∈ keys(kwargs) ? kwargs[:obstimes] : observationtimes(pop[i])
     saveat = :saveat ∈ keys(kwargs) ? kwargs[:saveat] : obstimes
     _problem(m,pop[i],col,args...; saveat=saveat,kwargs...)
   end
 
-  # TODO: Get rid of repeat calculations
   function simobs_output_func(sol,i)
-    col = m.pre(param, randeffs, pop[i])
+    col = sol.prob.p
     obstimes = :obstimes ∈ keys(kwargs) ? kwargs[:obstimes] : observationtimes(pop[i])
     saveat = :saveat ∈ keys(kwargs) ? kwargs[:saveat] : obstimes
     derived = m.derived(col,sol,obstimes,pop[i])

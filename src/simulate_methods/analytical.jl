@@ -14,7 +14,7 @@ function DiffEqBase.solve(prob::PresetAnalyticalPKProblem,args...;kwargs...)
 end
 
 function DiffEqBase.solve(prob::NullDEProblem,args...;kwargs...)
-  return nothing
+  return NullDESolution(prob)
 end
 
 function _build_analytical_problem(m::PumasModel, subject::Subject, tspan, col,

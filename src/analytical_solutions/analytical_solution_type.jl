@@ -125,3 +125,15 @@ function (sol::AnalyticalPKSolution)(ts::AbstractArray,deriv::Type{<:Val}=Val{0}
     error("Non-number idxs not supported with mixed analytical + numerical yet. Please file an issue.")
   end
 end
+
+struct NullDESolution{P} <: DiffEqBase.AbstractAnalyticalSolution{Any,1}
+  prob::P
+end
+
+Base.summary(A::NullDESolution) = "NullDESolution"
+function Base.show(io::IO, A::NullDESolution)
+  print(io,"NullDESolution")
+end
+function Base.show(io::IO, m::MIME"text/plain", A::NullDESolution)
+  print(io,"NullDESolution")
+end
