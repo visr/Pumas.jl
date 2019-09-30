@@ -87,8 +87,8 @@ function DiffEqBase.solve(m::PumasModel, subject::Subject,
                           randeffs = sample_randeffs(m, param),
                           saveat = observationtimes(subject),
                           args...; kwargs...)
-  m.prob === nothing && return nothing
   col = m.pre(param, randeffs, subject)
+  m.prob === nothing && return NullDESolution(NullDEProblem(col))
   prob = _problem(m,subject,col,args...;saveat=saveat,kwargs...)
   alg = m.prob isa ExplicitModel ? nothing : alg=AutoTsit5(Rosenbrock23())
   solve(prob,args...;alg=alg,kwargs...)
@@ -117,7 +117,7 @@ be repeated in the other API functions
 """
 function _problem(m::PumasModel, subject, col, args...;
                 tspan=nothing, saveat=Float64[], kwargs...)
-  m.prob === nothing && return NullDEProblem()
+  m.prob === nothing && return NullDEProblem(col)
   if tspan === nothing
     tspan = float.(timespan(subject,tspan,saveat))
   end
