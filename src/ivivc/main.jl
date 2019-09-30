@@ -52,7 +52,7 @@ function IVIVCModel(vitro_data, uir_data, vivo_data;
     dict = Dict()
     _dict = Dict()
     for (form, prof) in vivo_data[i]
-      dict[form], _dict[form] = get_fabs(prof.conc, prof.time, kel, deconvo_method)
+      dict[form], _dict[form] = estimate_fabs(prof.conc, prof.time, kel, deconvo_method)
     end
     all_fabs[i] = dict
     all_auc_inf[i] = _dict
@@ -100,7 +100,7 @@ function IVIVCModel(vitro_data, uir_data, vivo_data;
 end
 
 # main function for prediction by estimated IVIVC model
-function prediction(A::IVIVCModel, form)
+function predict_vivo(A::IVIVCModel, form)
   if(A.deconvo_method != :wn) error("Not implemented yet!!") end
   all_auc_inf, kel, pmin, vitro_data, vivo_data = A.all_auc_inf, A.kel, A.pmin, A.vitro_data, A.vivo_data
   if A.vitro_model == :emax 
@@ -111,7 +111,11 @@ function prediction(A::IVIVCModel, form)
     error("not implemented yet!!")
   end
   # ODE Formulation
-  f(c, p, t) = kel * all_auc_inf[1][form] * pmin[1] * pmin[2] * rate_fun(t * pmin[2], vitro_data[1][form].pmin) - kel * c
+  Tshift = 0.0
+  if length(pmin) > 2
+    Tshift = pmin[3]
+  end
+  f(c, p, t) = kel * all_auc_inf[1][form] * pmin[1] * pmin[2] * rate_fun(t * pmin[2] .- Tshift, vitro_data[1][form].pmin) - kel * c
   u0 = 0.0
   tspan = (vivo_data[1][form].time[1], vivo_data[1][form].time[end])
   prob = ODEProblem(f, u0, tspan)
@@ -120,7 +124,7 @@ function prediction(A::IVIVCModel, form)
 end
 
 # helper function to call deconvo methods
-function get_fabs(c, t, kel, method)
+function estimate_fabs(c, t, kel, method)
   if method == :wn
     return wagner_nelson(c, t, kel)
   else
@@ -160,7 +164,7 @@ end
 
 get_metric_func() = Dict([(:aic, aic), (:aicc, aicc), (:bic, bic)])
 
-function to_csv(obj::IVIVCModel, path=homedir())
+function to_csv(obj::IVIVCModel; path=homedir())
   @unpack vitro_data, vivo_data, uir_model, uir_frac, fabs, ka, kel, V, pmin, vitro_model = obj
   # save estimated params of vitro modeling to csv file
   tmp = collect(values(vitro_data[1]))

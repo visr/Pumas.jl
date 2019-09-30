@@ -29,9 +29,9 @@ export InVitroForm, InVitroData
 export InVivoForm, InVivoData
 export read_vitro, read_vivo, read_uir
 export emax, emax_ng, weibull, double_weibull, makoid
-export estimate_fdiss, get_avail_models
+export estimate_fdiss, get_avail_models, estimate_fabs
 export estimate_uir, get_avail_vivo_models, to_csv
-export calc_input_rate, wagner_nelson, IVIVCModel, ivivc_predict, percentage_prediction_error
+export calc_input_rate, wagner_nelson, IVIVCModel, predict_vivo, percentage_prediction_error
 export loglikelihood, nullloglikelihood, dof, nobs, deviance, mss,
        rss, aic, aicc, bic, r2
 end # module
