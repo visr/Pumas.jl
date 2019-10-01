@@ -27,7 +27,12 @@ function IVIVCModel(vitro_data, uir_data, vivo_data;
                     vitro_model_metric=:aic,
                     uir_frac = 1.0,
                     deconvo_method=:wn,
-                    ivivc_model=:two)
+                    ivivc_model=:two,
+                    time_scale=true,
+                    time_shift=false,
+                    p=nothing,
+                    lb=nothing,
+                    ub=nothing)
   # model the vitro data
   if vitro_model === nothing
     error("Not implemented!!")
@@ -64,24 +69,33 @@ function IVIVCModel(vitro_data, uir_data, vivo_data;
   #       3. Fabs(t) = AbsScale*Fdiss(t*Tscale - Tshift) - AbsBase
 
   avg_fabs = _avg_fabs(all_fabs)
-  # optimization
-  if ivivc_model == :two
-    m = (form, time, x) -> x[1] * vitro_data[1][form](time * x[2])
-    p = [0.8, 0.5]
-    ub = [1.25, 1.25]
-    lb = [0.0, 0.0]
-  elseif ivivc_model == :three
-    m = (form, time, x) -> x[1] * vitro_data[1][form](time * x[2] .- x[3])
-    p = [0.8, 0.5, 0.6]
-    ub = [1.25, 1.25, 1.25]
-    lb = [0.0, 0.0, 0.0]
-  elseif ivivc_model == :four
-    m = (form, time, x) -> (x[1] * vitro_data[1][form](time * x[2] .- x[3])) .- x[4]
-    p = [0.8, 0.5, 0.6, 0.6]
-    ub = [1.25, 1.25, 1.25, 1.25]
-    lb = [0.0, 0.0, 0.0, 0.0]
+  # IVIVC modeling
+  if typeof(ivivc_model) <: Symbol
+    if ivivc_model == :two
+      m = (form, time, x) -> x[1] * vitro_data[1][form](time * x[2])
+      p = [0.8, 0.5]
+      ub = [1.25, 1.25]
+      lb = [0.0, 0.0]
+    elseif ivivc_model == :three
+      m = (form, time, x) -> x[1] * vitro_data[1][form](time * x[2] .- x[3])
+      p = [0.8, 0.5, 0.6]
+      ub = [1.25, 1.25, 1.25]
+      lb = [0.0, 0.0, 0.0]
+    elseif ivivc_model == :four
+      m = (form, time, x) -> (x[1] * vitro_data[1][form](time * x[2] .- x[3])) .- x[4]
+      p = [0.8, 0.5, 0.6, 0.6]
+      ub = [1.25, 1.25, 1.25, 1.25]
+      lb = [0.0, 0.0, 0.0, 0.0]
+    else
+    error("Incorrect Symbol for IVIVC model")
+  elseif typeof(ivivc_model) <: Function
+    function m(form, time, p)
+      if time_scale time .*= p[1] end
+      if time_scale time .-= p[2] end
+      ivivc_model(vitro_data[1][form](time), p[3:end])
+    end
   else
-    error("Incorrect keyword for IVIVC model!!")
+    error("type of ivivc_model should be Symobol (:two, :three and :four) or Function")
   end
   function errfun(x)
     err = 0.0
