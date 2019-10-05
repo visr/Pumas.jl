@@ -240,3 +240,13 @@ function Base.show(io::IO, mime::MIME"text/plain", sens::SobolOutput)
     end
   end   
 end
+
+function Base.show(io::IO, mime::MIME"text/plain", sens::MorrisOutput)
+  for ((key, value), varnce) in zip(pairs(sens.μ),sens.variances)
+    println(io, "Derived Variable: ", key, "\n")
+    println(io, "Parameter ", " "^5, "μ ", " "^5 ,"variance", "\n")
+    for ((par, sens), varn) in zip(pairs(value), varnce)
+      println(io, par, " "^10, sens, " ", varn, "\n")
+    end
+  end
+end

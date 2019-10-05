@@ -5,14 +5,13 @@ function DiffEqSensitivity.gsa(m::PumasModel, subject::Subject, params::NamedTup
     trf_ident = toidentitytransform(m.param)
     sim_ = simobs(m, subject, params, args...; kwargs...)
     length_vars = append!([0], cumsum([length(sim_.observed[key]) for key in vars]))
-    params_len = append!([0], cumsum([map(length, params)...]))
     function f(p)
         param = TransformVariables.transform(trf_ident, p)
         sim = simobs(m, subject, param, args...; kwargs...)
         collect(Iterators.flatten([sim.observed[key] for key in vars])) 
     end
     sensitivity = DiffEqSensitivity.gsa(f, p_range, method)
-    return sens_result(sensitivity, params, vars, length_vars, params_len, trf_ident)
+    return sens_result(sensitivity, params, vars, length_vars, trf_ident)
 end
 
 function DiffEqSensitivity.gsa(m::PumasModel, population::Population, params::NamedTuple, method::DiffEqSensitivity.GSAMethod, vars = [:dv], p_range_low=NamedTuple{keys(params)}([par.*0.05 for par in values(params)]), p_range_high=NamedTuple{keys(params)}([par.*1.95 for par in values(params)]), args...; kwargs...)
@@ -22,14 +21,13 @@ function DiffEqSensitivity.gsa(m::PumasModel, population::Population, params::Na
     trf_ident = toidentitytransform(m.param)
     sim_ = simobs(m, population, params, args...; kwargs...)
     length_vars = append!([0], cumsum([length(sim_[1].observed[key]) for key in vars]))
-    params_len = append!([0], cumsum([map(length, params)...]))
     function f(p)
         param = TransformVariables.transform(trf_ident, p)
         sim = simobs(m, population, param, args...; kwargs...)
         mean([collect(Iterators.flatten([sim[i].observed[key] for key in vars])) for i in 1:length(sim)])
     end
     sensitivity = DiffEqSensitivity.gsa(f, p_range, method)
-    return sens_result(sensitivity, params, vars, length_vars, params_len, trf_ident)
+    return sens_result(sensitivity, params, vars, length_vars, trf_ident)
 end
 
 struct SobolOutput{T1, T2, T3, T4}
@@ -39,7 +37,7 @@ struct SobolOutput{T1, T2, T3, T4}
     total_order_conf_int::T4
 end
 
-function sens_result(sens::DiffEqSensitivity.SobolResult, params::NamedTuple, vars::AbstractVector, length_vars::AbstractVector, params_len, trf_ident)
+function sens_result(sens::DiffEqSensitivity.SobolResult, params::NamedTuple, vars::AbstractVector, length_vars::AbstractVector, trf_ident)
     first = NamedTuple()
     total = NamedTuple()
     first_ci_l = NamedTuple()
@@ -103,4 +101,26 @@ function sens_result(sens::DiffEqSensitivity.SobolResult, params::NamedTuple, va
         end
     end
     return SobolOutput(first, total, (max_conf_int = first_ci_h, min_conf_int = first_ci_l, ), (max_conf_int = tot_ci_h, min_conf_int = tot_ci_l, ))
+end
+
+
+struct MorrisOutput{T}
+    μ::T
+    variances::T
+end
+
+function sens_result(sens::DiffEqSensitivity.MorrisResult, params::NamedTuple, vars::AbstractVector, length_vars::AbstractVector, trf_ident)
+    sensi_mean = []
+    sensi_var = []
+    for ind in 1:length(length_vars)-1
+        means = []
+        variances = []
+        for (sen_p_mean, sen_p_var) in zip(sens.means, sens.variances)
+            push!(means, sen_p_mean[length_vars[ind]+1:length_vars[ind+1]])
+            push!(variances, sen_p_var[length_vars[ind]+1:length_vars[ind+1]])
+        end
+        push!(sensi_mean, TransformVariables.transform(trf_ident, collect(Iterators.flatten(means))))
+        push!(sensi_var, TransformVariables.transform(trf_ident, collect(Iterators.flatten(variances))))
+    end
+    return MorrisOutput(NamedTuple{Tuple(vars)}(sensi_mean), NamedTuple{Tuple(vars)}(sensi_var))
 end
