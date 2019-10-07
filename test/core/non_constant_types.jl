@@ -4,7 +4,7 @@ data = read_pumas(example_data("data1"),
                       cvs = [:sex,:wt,:etn,:time])
 
 tmp = []
-push!(tmp, Subject(obs=data[1].observations, time=data[1].time, cvs=(sex=1, wt=[51.6], etn=1, time=data[1].covariates.time), evs=data[1].events))
+push!(tmp, Subject(obs=data[1].observations, time=data[1].time, cvs=(sex=1, wt=[51.6 for i in 1:length(data[1].covariates.time)], etn=1, time=data[1].covariates.time), evs=data[1].events))
 push!(tmp, data[2])
 new_data = identity.(tmp)
 
@@ -52,3 +52,4 @@ end
 obs = simobs(mdsl, new_data, init_param(mdsl), ensemblealg = EnsembleSerial())
 obs = simobs(mdsl, new_data, init_param(mdsl), ensemblealg = EnsembleThreads())
 obs = simobs(mdsl, new_data, init_param(mdsl), ensemblealg = EnsembleDistributed())
+obs = simobs(mdsl, new_data, init_param(mdsl), ensemblealg = EnsembleSplitThreads())
