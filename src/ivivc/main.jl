@@ -87,7 +87,8 @@ function IVIVCModel(vitro_data, uir_data, vivo_data;
       ub = [1.25, 1.25, 1.25, 1.25]
       lb = [0.0, 0.0, 0.0, 0.0]
     else
-    error("Incorrect Symbol for IVIVC model")
+      error("Incorrect Symbol for IVIVC model")
+    end
   elseif typeof(ivivc_model) <: Function
     function m(form, time, p)
       if time_scale time .*= p[1] end
@@ -117,8 +118,10 @@ end
 function predict_vivo(A::IVIVCModel, form)
   if(A.deconvo_method != :wn) error("Not implemented yet!!") end
   all_auc_inf, kel, pmin, vitro_data, vivo_data = A.all_auc_inf, A.kel, A.pmin, A.vitro_data, A.vivo_data
-  if A.vitro_model == :emax 
-    rate_fun = e_der
+  if A.vitro_model == :emax
+    p = vitro_data[1][form].pmin
+    f(t) = emax(t, p)
+    rate_fun = t -> ForwardDiff.derivative(f, t)
   elseif A.vitro_model == :we
     rate_fun = w_der
   else
@@ -129,7 +132,7 @@ function predict_vivo(A::IVIVCModel, form)
   if length(pmin) > 2
     Tshift = pmin[3]
   end
-  f(c, p, t) = kel * all_auc_inf[1][form] * pmin[1] * pmin[2] * rate_fun(t * pmin[2] .- Tshift, vitro_data[1][form].pmin) - kel * c
+  f(c, p, t) = kel * all_auc_inf[1][form] * pmin[1] * pmin[2] * rate_fun(t * pmin[2] .- Tshift) - kel * c
   u0 = 0.0
   tspan = (vivo_data[1][form].time[1], vivo_data[1][form].time[end])
   prob = ODEProblem(f, u0, tspan)

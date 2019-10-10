@@ -3,6 +3,7 @@ module IVIVC
 using Reexport
 using RecipesBase
 using OrdinaryDiffEq
+using ForwardDiff
 using CSV, DataFrames
 using Parameters
 
