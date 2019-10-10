@@ -516,35 +516,36 @@ function StatsBase.predict(model::PumasModel, subject::Subject, param, approx, v
   SubjectPrediction(pred, ipred, subject, approx)
 end
 
-function StatsBase.predict(fpm::FittedPumasModel, approx=fpm.approx; nsim=nothing, timegrid=false, data=nothing, useEBEs=true)
+function StatsBase.predict(fpm::FittedPumasModel, subjects::Population=fpm.data, approx=fpm.approx; nsim=nothing, timegrid=false,  useEBEs=true)
   if !useEBEs
     error("Sampling from the omega distribution is not yet implemented.")
   end
   if !(timegrid==false)
     error("Using custom time grids is not yet implemented.")
   end
-
-  _estimate_bayes = true
-  if data isa Nothing
-    subjects = fpm.data
-    if approx == fpm.approx
-      _estimate_bayes = false
-    end
-  elseif data isa Population
-    subjects = data
-  elseif data isa Subject
-    subjects = [data]
-  else
-    throw(ErrorException("The data input using the keyword argument `data` is not of a valid type. Expected `Population` or `Subject`."))
+  if !(nsim isa Nothing)
+    error("Using simulated subjects is not yet implemented.")
   end
+
+  _estimate_bayes = approx == fpm.approx ? false : true
 
   if _estimate_bayes
     # re-estimate under approx
-    vvrandeffsorth = [_orth_empirical_bayes(fpm.model, subject, coef(fpm), approx) for subject in subjects]
+    return map(subject -> predict(fpm, subject, approx; timegrid=timegrid), subjects)
   else
-    vvrandeffsorth = fpm.vvrandeffsorth
+    return map(i -> predict(fpm.model, subjects[i], coef(fpm), approx, fpm.vvrandeffsorth[i]), 1:length(subjects))
   end
-  [predict(fpm.model, subjects[i], coef(fpm), approx, vvrandeffsorth[i]) for i = 1:length(subjects)]
+end
+
+function StatsBase.predict(fpm::FittedPumasModel,
+                           subject::Subject,
+                           approx::LikelihoodApproximation=fpm.approx,
+                           vrandeffsorth = _orth_empirical_bayes(fpm.model, subject, coef(fpm), approx);
+                           timegrid=false)
+  # We have not yet implemented custom time grids
+  !(timegrid==false) && error("Using custom time grids is not yet implemented.")
+
+  predict(fpm.model, subject, coef(fpm), approx, vrandeffsorth)
 end
 
 function _predict(model, subject, param, approx::FO, vvrandeffsorth)
