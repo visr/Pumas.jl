@@ -516,7 +516,7 @@ function StatsBase.predict(model::PumasModel, subject::Subject, param, approx, v
   SubjectPrediction(pred, ipred, subject, approx)
 end
 
-function StatsBase.predict(fpm::FittedPumasModel, approx=fpm.approx; nsim=nothing, timegrid=false, newdata=false, useEBEs=true)
+function StatsBase.predict(fpm::FittedPumasModel, approx=fpm.approx; nsim=nothing, timegrid=false, data::Union{Population, Subject, Nothing}=nothing, useEBEs=true)
   if !useEBEs
     error("Sampling from the omega distribution is not yet implemented.")
   end
@@ -527,9 +527,21 @@ function StatsBase.predict(fpm::FittedPumasModel, approx=fpm.approx; nsim=nothin
     error("Using custom time grids is not yet implemented.")
   end
 
-  subjects = fpm.data
+  _estimate_bayes = true
+  if data isa Nothing
+    subjects = fpm.data
+    if approx == fpm.approx
+      _estimate_bayes = false
+    else
+  elseif data isa Population
+    subjects = data
+  elseif data isa Subject
+    subjects = [data]
+  else
+    throw(ErrorException("The data input using the keyword argument `data` is not of a valid type. Expected `Population` or `Subject`."))
+  end
 
-  if approx == fpm.approx
+  if _estimate_bayes
     vvrandeffsorth = fpm.vvrandeffsorth
   else
     # re-estimate under approx
