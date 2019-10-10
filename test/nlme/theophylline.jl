@@ -115,6 +115,8 @@ end
   o_predict = predict(o)
   @test predict(o, simdata[3]).pred ≈ predict(o)[3].pred
   @test predict(o, simdata[3]).ipred ≈ predict(o)[3].ipred
+  @test predict(o, simdata)[3].pred ≈ predict(o)[3].pred
+  @test predict(o, simdata)[3].ipred ≈ predict(o)[3].ipred
   o_predict_df = DataFrame(o_predict)
   o_empirical_bayes = empirical_bayes(o)
   o_empirical_bayes_df = DataFrame(o_empirical_bayes)
