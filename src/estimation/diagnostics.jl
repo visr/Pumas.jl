@@ -516,12 +516,9 @@ function StatsBase.predict(model::PumasModel, subject::Subject, param, approx, v
   SubjectPrediction(pred, ipred, subject, approx)
 end
 
-function StatsBase.predict(fpm::FittedPumasModel, approx=fpm.approx; nsim=nothing, timegrid=false, data::Union{Population, Subject, Nothing}=nothing, useEBEs=true)
+function StatsBase.predict(fpm::FittedPumasModel, approx=fpm.approx; nsim=nothing, timegrid=false, data=nothing, useEBEs=true)
   if !useEBEs
     error("Sampling from the omega distribution is not yet implemented.")
-  end
-  if !(newdata==false)
-    error("Using data different than that used to fit the model is not yet implemented.")
   end
   if !(timegrid==false)
     error("Using custom time grids is not yet implemented.")
@@ -532,7 +529,7 @@ function StatsBase.predict(fpm::FittedPumasModel, approx=fpm.approx; nsim=nothin
     subjects = fpm.data
     if approx == fpm.approx
       _estimate_bayes = false
-    else
+    end
   elseif data isa Population
     subjects = data
   elseif data isa Subject
@@ -542,10 +539,10 @@ function StatsBase.predict(fpm::FittedPumasModel, approx=fpm.approx; nsim=nothin
   end
 
   if _estimate_bayes
-    vvrandeffsorth = fpm.vvrandeffsorth
-  else
     # re-estimate under approx
     vvrandeffsorth = [_orth_empirical_bayes(fpm.model, subject, coef(fpm), approx) for subject in subjects]
+  else
+    vvrandeffsorth = fpm.vvrandeffsorth
   end
   [predict(fpm.model, subjects[i], coef(fpm), approx, vvrandeffsorth[i]) for i = 1:length(subjects)]
 end
