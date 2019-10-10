@@ -515,7 +515,7 @@ function StatsBase.predict(model::PumasModel, subject::Subject, param, approx, v
   ipred = _ipredict(model, subject, param, approx, vvrandeffsorth)
   SubjectPrediction(pred, ipred, subject, approx)
 end
-
+StatsBase.predict(fpm::FittedPumasModel, approx::LikelihoodApproximation; kwargs...) = predict(fpm, fpm.data, approx; kwargs...)
 function StatsBase.predict(fpm::FittedPumasModel, subjects::Population=fpm.data, approx=fpm.approx; nsim=nothing, timegrid=false,  useEBEs=true)
   if !useEBEs
     error("Sampling from the omega distribution is not yet implemented.")
