@@ -91,10 +91,10 @@ function IVIVCModel(vitro_data, uir_data, vivo_data;
     end
   elseif typeof(ivivc_model) <: Function
     function m(form, time, p)
-      _time = copy(time)
-      if time_scale _time .*= p[1] end
-      if time_shift _time .-= p[2] end
-      ivivc_model(vitro_data[1][form](_time), p[3:end])
+      Tscale = 1.0; Tshift = 0.0
+      if time_scale Tscale = p[1] end
+      if time_shift Tshift = p[2] end
+      ivivc_model(vitro_data[1][form](time*Tscale .- Tshift), p[3:end])
     end
   else
     error("type of ivivc_model should be Symobol (:two, :three and :four) or Function")
@@ -119,20 +119,11 @@ end
 function predict_vivo(A::IVIVCModel, form)
   if(A.deconvo_method != :wn) error("Not implemented yet!!") end
   all_auc_inf, kel, pmin, vitro_data, vivo_data = A.all_auc_inf, A.kel, A.pmin, A.vitro_data, A.vivo_data
-  p = vitro_data[1][form].pmin
-  if A.vitro_model == :emax
-    rate_fun = t -> ForwardDiff.derivative(t -> emax(t, p), t)
-  elseif A.vitro_model == :we
-    rate_fun = t -> ForwardDiff.derivative(t -> weibull(t, p), t)
-  else
-    error("not implemented yet!!")
-  end
+
+  td_ivivc = t -> ForwardDiff.derivative(t -> A.ivivc_model(form, t, pmin), t)
+
   # ODE Formulation
-  Tshift = 0.0
-  if length(pmin) > 2
-    Tshift = pmin[3]
-  end
-  f(c, p, t) = kel * all_auc_inf[1][form] * pmin[1] * pmin[2] * rate_fun(t * pmin[2] .- Tshift) - kel * c
+  f(c, p, t) = kel * all_auc_inf[1][form] * td_ivivc(t) - kel * c
   u0 = 0.0
   tspan = (vivo_data[1][form].time[1], vivo_data[1][form].time[end])
   prob = ODEProblem(f, u0, tspan)
