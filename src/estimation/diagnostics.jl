@@ -620,9 +620,10 @@ struct FittedPumasModelInspection{T1, T2, T3, T4}
   wres::T3
   ebes::T4
 end
-StatsBase.predict(i::FittedPumasModelInspection) = i.pred
-wresiduals(i::FittedPumasModelInspection) = i.wres
-empirical_bayes(i::FittedPumasModelInspection) = i.ebes
+StatsBase.predict(insp::FittedPumasModelInspection) = insp.pred
+StatsBase.predict(insp::FittedPumasModelInspection, args...; kwargs...) = predict(insp.o, args...; kwargs...)
+wresiduals(insp::FittedPumasModelInspection) = insp.wres
+empirical_bayes(insp::FittedPumasModelInspection) = insp.ebes
 
 function inspect(fpm; pred_approx=fpm.approx, infer_approx=fpm.approx,
                     wres_approx=fpm.approx, ebes_approx=fpm.approx)
