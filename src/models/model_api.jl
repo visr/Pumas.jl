@@ -193,7 +193,7 @@ to be repeated in the other API functions
       # FIXME! obstimes can be empty
       any(x->any(isnan,x), sol isa PKPDAnalyticalSolution ? sol(obstimes[end]) : sol.u[end])
       # FIXME! Do we need to make this type stable?
-      return nothing
+            return map(x->nothing, subject.observations) # create a named tuple of nothing with the observed names ( should this be all of derived?)
     end
 
     # extract distributions
