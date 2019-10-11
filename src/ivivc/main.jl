@@ -63,41 +63,14 @@ function IVIVCModel(vitro_data, uir_data, vivo_data;
     all_auc_inf[i] = _dict
   end
 
-  # IVIVC models:
-  #       1. Fabs(t) = AbsScale*Fdiss(t*Tscale)
-  #       2. Fabs(t) = AbsScale*Fdiss(t*Tscale - Tshift)
-  #       3. Fabs(t) = AbsScale*Fdiss(t*Tscale - Tshift) - AbsBase
-
   avg_fabs = _avg_fabs(all_fabs)
+
   # IVIVC modeling
-  if typeof(ivivc_model) <: Symbol
-    if ivivc_model == :two
-      m = (form, time, x) -> x[1] * vitro_data[1][form](time * x[2])
-      p = [0.8, 0.5]
-      ub = [1.25, 1.25]
-      lb = [0.0, 0.0]
-    elseif ivivc_model == :three
-      m = (form, time, x) -> x[1] * vitro_data[1][form](time * x[2] .- x[3])
-      p = [0.8, 0.5, 0.6]
-      ub = [1.25, 1.25, 1.25]
-      lb = [0.0, 0.0, 0.0]
-    elseif ivivc_model == :four
-      m = (form, time, x) -> (x[1] * vitro_data[1][form](time * x[2] .- x[3])) .- x[4]
-      p = [0.8, 0.5, 0.6, 0.6]
-      ub = [1.25, 1.25, 1.25, 1.25]
-      lb = [0.0, 0.0, 0.0, 0.0]
-    else
-      error("Incorrect Symbol for IVIVC model")
-    end
-  elseif typeof(ivivc_model) <: Function
-    function m(form, time, p)
-      Tscale = 1.0; Tshift = 0.0
-      if time_scale Tscale = p[1] end
-      if time_shift Tshift = p[2] end
-      ivivc_model(vitro_data[1][form](time*Tscale .- Tshift), p[3:end])
-    end
-  else
-    error("type of ivivc_model should be Symobol (:two, :three and :four) or Function")
+  function m(form, time, p)
+    Tscale = 1.0; Tshift = 0.0; i = 0
+    if time_scale Tscale = p[1]; i += 1 end
+    if time_shift Tshift = p[2]; i += 1 end
+    ivivc_model(vitro_data[1][form](time*Tscale .- Tshift), p[i+1:end])
   end
   function errfun(x)
     err = 0.0
