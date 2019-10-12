@@ -27,7 +27,7 @@ function IVIVCModel(vitro_data, uir_data, vivo_data;
                     vitro_model_metric=:aic,
                     uir_frac = 1.0,
                     deconvo_method=:wn,
-                    ivivc_model=:two,
+                    ivivc_model,
                     time_scale=true,
                     time_shift=false,
                     p=nothing,
