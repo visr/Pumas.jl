@@ -15,7 +15,7 @@ show(io, "text/plain", data)
 @test_nowarn display(data)
 @test_nowarn display(data[1])
 aucs = @test_nowarn NCA.auc(data)
-@test names(aucs) == [:id, :occasion, :METABOLITE, :auc]
+@test names(aucs) == [:id, :occasion, :METABOLITE, :auc, :auc_retcode]
 @test aucs[!, :METABOLITE] == repeat(["Metabolite $i" for i in 1:4], inner=5*3)
 @test_nowarn NCA.mrt(data)
 @test_nowarn NCA.tmin(data)

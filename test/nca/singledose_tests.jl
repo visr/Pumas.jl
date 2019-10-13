@@ -22,7 +22,7 @@ popncareport = NCAReport(ncapop, ithdose=1)
 @test_nowarn DataFrame(popncareport)
 
 lambdazdf = @test_nowarn NCA.lambdaz(ncapop)
-@test size(lambdazdf, 2) == 2
+@test size(lambdazdf, 2) == 3
 @test lambdazdf[!,:lambdaz] isa Vector
 @test lambdazdf[!,:id] == collect(1:24)
 @test_nowarn NCA.lambdazr2(ncapop)
@@ -81,8 +81,8 @@ for m in (:linear, :linuplogdown, :linlog)
   @test_broken @inferred NCA.auc(conc[idx], t[idx], method=m)
   @test_broken @inferred NCA.aumc(conc[idx], t[idx], method=m)
   _nca = NCASubject(conc[idx], t[idx])
-  @inferred NCA.auc( _nca, method=m)
-  @inferred NCA.aumc(_nca, method=m)
+  #@inferred NCA.auc( _nca, method=m) # could return Symbol
+  #@inferred NCA.aumc(_nca, method=m)
   @test_nowarn NCA.interpextrapconc(conc[idx], t[idx], 1000rand(500)*timeu, method=m)
   @test_nowarn NCA.auc(conc[idx], t[idx], method=m, interval=(0,100.).*timeu, auctype=:last)
   @test_nowarn NCA.aumc(conc[idx], t[idx], method=m, interval=(0,100.).*timeu, auctype=:last)

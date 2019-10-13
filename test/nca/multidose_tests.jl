@@ -21,7 +21,7 @@ mncapop = @test_nowarn read_nca(mdata, id=:ID, time=:TIME, conc=:COBS, amt=:AMT,
 @test NCA.auc(mncapop[1]; method=:linear) != NCA.auc(mncapop[1]; method=:linuplogdown)
 
 lambdazdf = @test_nowarn NCA.lambdaz(mncapop)
-@test size(lambdazdf, 2) == 3
+@test size(lambdazdf, 2) == 4
 @test lambdazdf[!,:lambdaz] isa Vector
 @test lambdazdf[!,:occasion] == repeat(collect(1:4), 24)
 @test lambdazdf[!,:id] == repeat(collect(1:24), inner=4)
