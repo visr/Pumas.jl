@@ -49,6 +49,9 @@ for f in [:lambdaz, :lambdazr2, :lambdazadjr2, :lambdazr, :lambdazintercept, :la
     else
       sol = map(subj -> $f(subj, args...; kwargs...), pop)
     end
+    retcode = map(x->x isa Symbol ? String(x) : :Success, sol)
+    sol = replace(x->x isa Symbol ? missing : x, sol)
+    typeof(sol) === Any && (sol = map(identity, sol))
     df = DataFrame()
     if label
       _repeat(x, n) = n == 1 ? x : repeat(x, inner=n)
@@ -73,6 +76,7 @@ for f in [:lambdaz, :lambdazr2, :lambdazadjr2, :lambdazr, :lambdazintercept, :la
       end
     end
     df.$f = sol
+    setproperty!(df, Symbol($f, :_retcode), retcode)
     return df
   end
 end

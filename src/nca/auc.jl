@@ -180,7 +180,10 @@ function _auc(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R}, int
     time0 = zero(time[idx1])
     if time[idx1] > time0
       c0′ = c0(nca, true)
-      c0′ === missing && throw(ArgumentError("AUC calculation cannot proceed, because `c0` gives missing"))
+      if c0′ === missing
+        @info "ID $(nca.id) errored: AUC calculation cannot proceed, because `c0` gives missing"
+        return :C0IsMissing #throw(ArgumentError("AUC calculation cannot proceed, because `c0` gives missing"))
+      end
       auc_0 = intervalauc(c0′, conc[idx1], time0, time[idx1], idx1-1, maxidx(nca), method, linear, log, ret_typ)
       if nca.auc_0 isa AbstractArray
         nca.auc_0[1] = auc_0
@@ -353,7 +356,10 @@ function lambdaz(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R};
   n = length(time)
   if slopetimes === nothing && idxs === nothing
     m = min(n-1, threshold-1, n-cmaxidx-1)
-    m < 2 && throw(ArgumentError("ID $(nca.id) errored: lambdaz must be calculated from at least three data points after Cmax"))
+    if m < 2
+        @info "ID $(nca.id) errored: lambdaz must be calculated from at least three data points after Cmax"
+        return :NotEnoughDataAfterCmax #throw(ArgumentError("ID $(nca.id) errored: lambdaz must be calculated from at least three data points after Cmax"))
+    end
     idx2 = length(time′)
     for i in 2:m
       idx1 = idx2-i
