@@ -32,5 +32,6 @@ function uq_windowcost(g, ::MonteCarloQuant,
                        args...;imaxiters=10000,
                        kwargs...)
    pop = [deepcopy(subject) for i in 1:imaxiters]
-   mean(g.(simobs(m,pop,param_dists,args...;kwargs...)))
+   results = g.(simobs(m,pop,param_dists,args...;kwargs...))
+   mean(results),std(results)
 end
