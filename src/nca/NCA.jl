@@ -42,12 +42,20 @@ for f in [:lambdaz, :lambdazr2, :lambdazadjr2, :lambdazr, :lambdazintercept, :la
           end
         catch
           @info "ID $(subj.id) errored"
-          rethrow()
+          #rethrow()
+          param = fill(missing, length(subj.dose))
         end
       end
       sol = collect(Base.Iterators.flatten(sol′))
     else
-      sol = map(subj -> $f(subj, args...; kwargs...), pop)
+      sol = map(pop) do subj
+        try
+          return $f(subj, args...; kwargs...)
+        catch
+          @info "ID $(subj.id) errored"
+          return missing
+        end
+      end
     end
     retcode = map(x->x isa Symbol ? String(x) : :Success, sol)
     sol = replace(x->x isa Symbol ? missing : x, sol)
