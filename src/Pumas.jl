@@ -48,6 +48,8 @@ include("simulate_methods/utils.jl")
 include("simulate_methods/diffeqs.jl")
 include("simulate_methods/analytical.jl")
 
+include("uq/windowcost.jl")
+
 include("plotting/plotting.jl")
 
 @reexport using .NCA
@@ -69,6 +71,7 @@ export infer, inspect
 export vpc, vpc_obs
 export gsa
 export mean, std, var, coef
+export uq_windowcost, KoopmanQuant, MonteCarloQuant
 # From LinearAlgebra
 export diagm, Diagonal, I
 

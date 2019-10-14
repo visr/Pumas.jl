@@ -4,6 +4,8 @@
     include("ddes.jl") end
 @time @safetestset "Unit Handling Tests" begin
     include("unit_handling_tests.jl") end
+@time @safetestset "UQ Tests" begin
+    include("uq_window.jl") end
 #=
 @time @safetestset "Physical Measurements Tests" begin
     include("measurement_tests.jl") end
