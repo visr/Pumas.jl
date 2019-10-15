@@ -12,7 +12,8 @@ function StatsBase.residuals(model::PumasModel, subject::Subject, param::NamedTu
 end
 function StatsBase.residuals(subject::Subject, dist)
   # Return the residuals
-  return subject.observations.dv .- mean.(dist.dv)
+  _keys = keys(subject.observations)
+  return map(x->x[1] .- mean.(x[2]), NamedTuple{_keys}(zip(subject.observations, dist)))
 end
 """
   npde(model, subject, param, randeffs, simulations_count)
@@ -74,10 +75,12 @@ function DataFrames.DataFrame(vresid::Vector{<:SubjectResidual}; include_covaria
   subjects = [resid.subject for resid in vresid]
   df = select!(DataFrame(subjects; include_covariates=include_covariates, include_dvs=false), Not(:evid))
 
-  df[!,:wres] .= vcat((resid.wres for resid in vresid)...)
-  df[!,:iwres] .= vcat((resid.iwres for resid in vresid)...)
-  df[!,:wres_approx] .= vcat((fill(resid.approx, length(resid.subject.time)) for resid in vresid)...)
-
+  _keys = keys(first(subjects).observations)
+  for name in (_keys)
+    df[!,Symbol(string(name)*"_wres")] .= vcat((resid.wres[name] for resid in vresid)...)
+    df[!,Symbol(string(name)*"_iwres")] .= vcat((resid.iwres[name] for resid in vresid)...)
+    df[!,:wres_approx] .= vcat((fill(resid.approx, length(resid.subject.time)) for resid in vresid)...)
+  end
   df
 end
 
@@ -124,21 +127,21 @@ function wres(m::PumasModel,
               kwargs...)
 
   if vrandeffsorth isa Nothing
-    vrandeffsorth::AbstractVector=_orth_empirical_bayes(m, subject, param, FO(), args...; kwargs...)
+    vrandeffsorth=_orth_empirical_bayes(m, subject, param, FO(), args...; kwargs...)::AbstractVector
   end
 
   randeffstransform = totransform(m.random(param))
   randeffs = TransformVariables.transform(randeffstransform, vrandeffsorth)
   dist = _derived(m, subject, param, randeffs)
-  F = ForwardDiff.jacobian(
-    _vrandeffs -> begin
-      _randeffs = TransformVariables.transform(randeffstransform, _vrandeffs)
-      return mean.(_derived(m, subject, param, _randeffs).dv)
-    end,
-    vrandeffsorth
-  )
-  V = Symmetric(F*F' + Diagonal(var.(dist.dv)))
-  return cholesky(V).U'\residuals(subject, dist)
+
+  F = _mean_derived_vηorth_jacobian(m, subject, param, vrandeffsorth, args...; kwargs...)
+
+  _dv_keys = keys(subject.observations)
+  return map(NamedTuple{_dv_keys}(_dv_keys)) do name
+
+        V = Symmetric(F[name]*F[name]' + Diagonal(var.(dist[name])))
+        return cholesky(V).U'\residuals(subject, dist)[name]
+      end
 end
 
 """
@@ -163,17 +166,16 @@ function cwres(m::PumasModel,
 
   dist0   = _derived(m, subject, param, randeffs0)
   distEBE = _derived(m, subject, param, randeffsEBE)
-  F = ForwardDiff.jacobian(
-    _vrandeffs -> begin
-      _randeffs = TransformVariables.transform(randeffstransform, _vrandeffs)
-      return mean.(_derived(m, subject, param, _randeffs).dv)
-    end,
-    vrandeffsorth
-  )
-  V = Symmetric(F*F' + Diagonal(var.(dist0.dv)))
-  return cholesky(V).U'\(residuals(subject, distEBE) .+ F*vrandeffsorth)
-end
 
+  F = _mean_derived_vηorth_jacobian(m, subject, param, vrandeffsorth, args...; kwargs...)
+
+  randeffstransform = totransform(m.random(param))
+  _dv_keys = keys(subject.observations)
+  return map(NamedTuple{_dv_keys}(_dv_keys)) do name
+          V = Symmetric(F[name]*F[name]' + Diagonal(var.(dist0[name])))
+          return cholesky(V).U'\(residuals(subject, distEBE)[name] .+ F[name]*vrandeffsorth)
+        end
+end
 """
   cwresi(model, subject, param[, rfx])
 
@@ -194,15 +196,14 @@ function cwresi(m::PumasModel,
   randeffstransform = totransform(m.random(param))
   randeffs = TransformVariables.transform(randeffstransform, vrandeffsorth)
   dist = _derived(m, subject, param, randeffs)
-  F = ForwardDiff.jacobian(
-    _vrandeffs -> begin
-      _randeffs = TransformVariables.transform(randeffstransform, _vrandeffs)
-      return mean.(_derived(m, subject, param, _randeffs).dv)
-    end,
-    vrandeffsorth
-  )
-  V = Symmetric(F*F' + Diagonal(var.(dist.dv)))
-  return cholesky(V).U'\(residuals(subject, dist) .+ F*vrandeffsorth)
+
+  F = _mean_derived_vηorth_jacobian(m, subject, param, vrandeffsorth, args...; kwargs...)
+
+  _dv_keys = keys(subject.observations)
+  return map(NamedTuple{_dv_keys}(_dv_keys)) do name
+           V = Symmetric(F[name]*F[name]' + Diagonal(var.(dist[name])))
+           return cholesky(V).U'\(residuals(subject, dist)[name] .+ F[name]*vrandeffsorth)
+         end
 end
 
 """
@@ -223,7 +224,7 @@ function pred(m::PumasModel,
 
   randeffs = TransformVariables.transform(totransform(m.random(param)), vrandeffsorth)
   dist = _derived(m, subject, param, randeffs)
-  return mean.(dist.dv)
+  return map(d -> mean.(d), dist)
 end
 
 
@@ -246,14 +247,19 @@ function cpred(m::PumasModel,
   randeffstransform = totransform(m.random(param))
   randeffs = TransformVariables.transform(randeffstransform, vrandeffsorth)
   dist = _derived(m, subject, param, randeffs)
-  F = ForwardDiff.jacobian(
-    _vrandeffs -> begin
-      _randeffs = TransformVariables.transform(randeffstransform, _vrandeffs)
-      mean.(_derived(m, subject, param, _randeffs).dv)
-    end,
-    vrandeffsorth
-  )
-  return mean.(dist.dv) .- F*vrandeffsorth
+
+
+  _dv_keys = keys(subject.observations)
+  return map(NamedTuple{_dv_keys}(_dv_keys)) do name
+      F = ForwardDiff.jacobian(
+        _vrandeffs -> begin
+          _randeffs = TransformVariables.transform(randeffstransform, _vrandeffs)
+          mean.(_derived(m, subject, param, _randeffs)[name])
+        end,
+        vrandeffsorth
+      )
+      return mean.(dist[name]) .- F*vrandeffsorth
+    end
 end
 
 """
@@ -275,14 +281,17 @@ function cpredi(m::PumasModel,
   randeffstransform = totransform(m.random(param))
   randeffs = TransformVariables.transform(randeffstransform, vrandeffsorth)
   dist = _derived(m, subject, param, randeffs)
-  F = ForwardDiff.jacobian(
-    _vrandeffs -> begin
-      _randeffs = TransformVariables.transform(randeffstransform, _vrandeffs)
-      mean.(_derived(m, subject, param, _randeffs).dv)
-    end,
-    vrandeffsorth
-  )
-  return mean.(dist.dv) .- F*vrandeffsorth
+  _dv_keys = keys(subject.observations)
+  return map(NamedTuple{_dv_keys}(_dv_keys)) do name
+    F = ForwardDiff.jacobian(
+      _vrandeffs -> begin
+        _randeffs = TransformVariables.transform(randeffstransform, _vrandeffs)
+        mean.(_derived(m, subject, param, _randeffs)[name])
+      end,
+      vrandeffsorth
+    )
+    return mean.(dist[name]) .- F*vrandeffsorth
+  end
 end
 
 """
@@ -295,8 +304,9 @@ function epred(m::PumasModel,
                param::NamedTuple,
                randeffs::NamedTuple,
                nsim::Integer)
-  sims = [simobs(m, subject, param, randeffs).observed.dv for i in 1:nsim]
-  return mean(sims)
+  sims = [simobs(m, subject, param, randeffs).observed for i in 1:nsim]
+  _dv_keys = keys(subject.observations)
+  return map(name -> mean(getproperty.(sims, name)), NamedTuple{_dv_keys}(_dv_keys))
 end
 
 """
@@ -317,7 +327,10 @@ function iwres(m::PumasModel,
 
   randeffs = TransformVariables.transform(totransform(m.random(param)), vrandeffsorth)
   dist = _derived(m, subject, param, randeffs)
-  return residuals(subject, dist) ./ std.(dist.dv)
+
+  _dv_keys = keys(subject.observations)
+  _res = residuals(subject, dist)
+  return map(name -> _res[name] ./ std.(dist[name]), NamedTuple{_dv_keys}(_dv_keys))
 end
 
 """
@@ -341,7 +354,10 @@ function icwres(m::PumasModel,
   randeffsEBE = TransformVariables.transform(randeffstransform, vrandeffsorth)
   dist0 = _derived(m, subject, param, randeffs0)
   dist = _derived(m, subject, param, randeffsEBE)
-  return residuals(subject, dist) ./ std.(dist0.dv)
+
+  _dv_keys = keys(subject.observations)
+  _res = residuals(subject, dist)
+  return map(name -> _res[name] ./ std.(dist0[name]), NamedTuple{_dv_keys}(_dv_keys))
 end
 
 """
@@ -362,7 +378,9 @@ function icwresi(m::PumasModel,
 
   randeffs = TransformVariables.transform(totransform(m.random(param)), vrandeffsorth)
   dist = _derived(m, subject, param, randeffs)
-  return residuals(subject, dist) ./ std.(dist.dv)
+  _dv_keys = keys(subject.observations)
+  _res = residuals(subject, dist)
+  return map(name -> _res[name] ./ std.(dist[name]), NamedTuple{_dv_keys}(_dv_keys))
 end
 
 """
@@ -376,14 +394,18 @@ function eiwres(m::PumasModel,
                 nsim::Integer,
                 args...;
                 kwargs...)
-  yi = subject.observations.dv
   dist = _derived(m, subject, param, sample_randeffs(m, param), args...; kwargs...)
-  sims_sum = (yi .- mean.(dist.dv))./std.(dist.dv)
-  for i in 2:nsim
-    dist = _derived(m, subject, param, sample_randeffs(m, param), args...; kwargs...)
-    sims_sum .+= (yi .- mean.(dist.dv))./std.(dist.dv)
+  _keys_dv = keys(subject.observations)
+  return map(NamedTuple{_keys_dv}(_keys_dv)) do name
+    dv = dist[name]
+    obsdv = subject.observations[name]
+    sims_sum = (obsdv .- mean.(dv))./std.(dv)
+    for i in 2:nsim
+      dist = _derived(m, subject, param, sample_randeffs(m, param), args...; kwargs...)
+      sims_sum .+= (obsdv .- mean.(dv))./std.(dv)
+    end
+    return sims_sum ./ nsim
   end
-  return sims_sum ./ nsim
 end
 
 function ipred(m::PumasModel,
@@ -399,7 +421,7 @@ function ipred(m::PumasModel,
 
   randeffs = TransformVariables.transform(totransform(m.random(param)), vrandeffsorth)
   dist = _derived(m, subject, param, randeffs, args...; kwargs...)
-  return mean.(dist.dv)
+  return map(d->mean.(d), dist)
 end
 
 function cipred(m::PumasModel,
@@ -415,7 +437,7 @@ function cipred(m::PumasModel,
 
   randeffs = TransformVariables.transform(totransform(m.random(param)), vrandeffsorth)
   dist = _derived(m, subject, param, randeffs, args...; kwargs...)
-  return mean.(dist.dv)
+  return map(d->mean.(d), dist)
 end
 
 function cipredi(m::PumasModel,
@@ -431,7 +453,7 @@ function cipredi(m::PumasModel,
 
   randeffs = TransformVariables.transform(totransform(m.random(param)), vrandeffsorth)
   dist = _derived(m, subject, param, randeffs, args...; kwargs...)
-  return mean.(dist.dv)
+  return map(d->mean.(d), dist)
 end
 
 function ηshrinkage(m::PumasModel,
@@ -464,7 +486,9 @@ function ϵshrinkage(m::PumasModel,
     vvrandeffsorth = [_orth_empirical_bayes(m, subject, param, FOCEI(), args...; kwargs...) for subject in data]
   end
 
-  1 - std(vec(VectorOfArray([icwresi(m, subject, param, vvrandeffsorth) for (subject, vvrandeffsorth) in zip(data, vvrandeffsorth)])), corrected = false)
+  _keys_dv = keys(first(data).observations)
+  _icwresi = [icwresi(m, subject, param, vvrandeffsorth) for (subject, vvrandeffsorth) in zip(data, vvrandeffsorth)]
+  map(name -> 1 - std(vec(VectorOfArray(getproperty.(_icwresi, name))), corrected = false), NamedTuple{_keys_dv}(_keys_dv))
 end
 
 function ϵshrinkage(m::PumasModel,
@@ -479,7 +503,9 @@ function ϵshrinkage(m::PumasModel,
     vvrandeffsorth = [_orth_empirical_bayes(m, subject, param, FOCE(), args...; kwargs...) for subject in data]
   end
 
-  1 - std(vec(VectorOfArray([icwres(m, subject, param, vvrandeffsorth) for (subject, vvrandeffsorth) in zip(data, vvrandeffsorth)])), corrected = false)
+  _keys_dv = keys(first(data).observations)
+  _icwres = [icwres(m, subject, param, vvrandeffsorth) for (subject, vvrandeffsorth) in zip(data, vvrandeffsorth)]
+  map(name -> 1 - std(vec(VectorOfArray(getproperty.(_icwres, name))), corrected = false), NamedTuple{_keys_dv}(_keys_dv))
 end
 
 function StatsBase.aic(m::PumasModel,
@@ -576,11 +602,12 @@ end
 function DataFrames.DataFrame(vpred::Vector{<:SubjectPrediction}; include_covariates=true)
   subjects = [pred.subject for pred in vpred]
   df = select!(DataFrame(subjects; include_covariates=include_covariates, include_dvs=false), Not(:evid))
-
-  df[!,:pred] .= vcat((pred.pred for pred in vpred)...)
-  df[!,:ipred] .= vcat((pred.ipred for pred in vpred)...)
-  df[!,:pred_approx] .= vcat((fill(pred.approx, length(pred.subject.time)) for pred in vpred)...)
-
+  _keys = keys(first(subjects).observations)
+  for name in  _keys
+    df[!,Symbol(string(name)*"_pred")] .= vcat((pred.pred.dv for pred in vpred)...)
+    df[!,Symbol(string(name)*"_ipred")] .= vcat((pred.ipred.dv for pred in vpred)...)
+    df[!,:pred_approx] .= vcat((fill(pred.approx, length(pred.subject.time)) for pred in vpred)...)
+  end
   df
 end
 
