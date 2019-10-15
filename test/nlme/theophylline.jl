@@ -113,14 +113,14 @@ end
   o_wresiduals = wresiduals(o)
   o_wresiduals_df = DataFrame(o_wresiduals)
   o_predict = predict(o)
-  @test predict(o, theopp[3]).pred ≈ predict(o)[3].pred
-  @test predict(o, theopp[3]).ipred ≈ predict(o)[3].ipred
-  @test predict(o, theopp)[3].pred ≈ predict(o)[3].pred
-  @test predict(o, theopp)[3].ipred ≈ predict(o)[3].ipred
-  @test predict(o_inspect, theopp[3]).pred ≈ predict(o_inspect)[3].pred
-  @test predict(o_inspect, theopp[3]).ipred ≈ predict(o_inspect)[3].ipred
-  @test predict(o_inspect, theopp)[3].pred ≈ predict(o_inspect)[3].pred
-  @test predict(o_inspect, theopp)[3].ipred ≈ predict(o_inspect)[3].ipred
+  @test predict(o, theopp[3]).pred.dv ≈ predict(o)[3].pred.dv
+  @test predict(o, theopp[3]).ipred.dv ≈ predict(o)[3].ipred.dv
+  @test predict(o, theopp)[3].pred.dv ≈ predict(o)[3].pred.dv
+  @test predict(o, theopp)[3].ipred.dv ≈ predict(o)[3].ipred.dv
+  @test predict(o_inspect, theopp[3]).pred.dv ≈ predict(o_inspect)[3].pred.dv
+  @test predict(o_inspect, theopp[3]).ipred.dv ≈ predict(o_inspect)[3].ipred.dv
+  @test predict(o_inspect, theopp)[3].pred.dv ≈ predict(o_inspect)[3].pred.dv
+  @test predict(o_inspect, theopp)[3].ipred.dv ≈ predict(o_inspect)[3].ipred.dv
   o_predict_df = DataFrame(o_predict)
   o_empirical_bayes = empirical_bayes(o)
   o_empirical_bayes_df = DataFrame(o_empirical_bayes)

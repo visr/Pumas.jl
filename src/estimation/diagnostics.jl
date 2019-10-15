@@ -224,7 +224,7 @@ function pred(m::PumasModel,
 
   randeffs = TransformVariables.transform(totransform(m.random(param)), vrandeffsorth)
   dist = _derived(m, subject, param, randeffs)
-  return map(d -> mean.(d), dist)
+  return map(d -> mean.(d), NamedTuple{keys(subject.observations)}(dist))
 end
 
 
