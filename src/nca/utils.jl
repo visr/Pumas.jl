@@ -277,7 +277,7 @@ Base.@propagate_inbounds function subject_at_ithdose(nca::NCASubject{C,TT,T,tElt
     firstpoint = view(nca.firstpoint, i)
     lastpoint = view(nca.lastpoint, i)
     points = view(nca.points, i)
-    retcode = view(nca.retcode, nca.recode)
+    retcode = view(nca.retcode, i)
     auc, auc_0, aumc = view(nca.auc_last, i), view(nca.auc_0, i), view(nca.aumc_last, i)
     return NCASubject(
                  nca.id,  nca.group,

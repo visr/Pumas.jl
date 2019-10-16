@@ -71,17 +71,17 @@ mutable struct NCASubject{C,T,TT,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}
   maxidx::I
   lastidx::I
   dose::D
-  lambdaz::Z
-  llq::N
-  r2::F
-  adjr2::F
-  intercept::F
-  firstpoint::tEltype
-  lastpoint::tEltype
-  points::P
-  auc_last::AUC
-  auc_0::AUC
-  aumc_last::AUMC
+  lambdaz::Union{Missing,Z}
+  llq::Union{Missing,N}
+  r2::Union{Missing,F}
+  adjr2::Union{Missing,F}
+  intercept::Union{Missing,F}
+  firstpoint::Union{Missing,tEltype}
+  lastpoint::Union{Missing,tEltype}
+  points::Union{Missing,P}
+  auc_last::Union{Missing,AUC}
+  auc_0::Union{Missing,AUC}
+  aumc_last::Union{Missing,AUMC}
   method::Symbol
   retcode::RT
 end
@@ -141,16 +141,12 @@ function NCASubject(conc, time;
     time = map(x->x[2], ct)
     maxidx  = fill(-2, n)
     lastidx = @. ctlast_idx(conc, time; llq=llq)
-    return NCASubject{typeof(conc), typeof(time), typeof(abstime), eltype(time),
-                      Vector{typeof(auc_proto)}, Vector{typeof(aumc_proto)},
-                      typeof(dose), Vector{typeof(lambdaz_proto)},
-                      Vector{typeof(r2_proto)}, typeof(llq), typeof(lastidx),
-                      Vector{Int}, typeof(id), typeof(group), Nothing, Nothing}(id, group,
-                        conc, nothing, time, #= no multidose urine =# nothing, nothing, nothing, abstime,
-                        maxidx, lastidx, dose, fill(lambdaz_proto, n), llq,
-                        fill(r2_proto, n), fill(r2_proto, n), fill(intercept, n),
-                        fill(-unittime, n), fill(-unittime, n), fill(0, n),
-                        fill(auc_proto, n), fill(auc_proto, n), fill(aumc_proto, n), :___, fill(:Success, n))
+    return NCASubject(id, group,
+                      conc, nothing, time, #= no multidose urine =# nothing, nothing, nothing, abstime,
+                      maxidx, lastidx, dose, fill(lambdaz_proto, n), llq,
+                      fill(r2_proto, n), fill(r2_proto, n), fill(intercept, n),
+                      fill(-unittime, n), fill(-unittime, n), fill(0, n),
+                      fill(auc_proto, n), fill(auc_proto, n), fill(aumc_proto, n), :___, fill(:Success, n))
   end
   isurine = volume !== nothing
   volume = isurine ? volume .* volumeu : nothing
@@ -183,18 +179,14 @@ function NCASubject(conc, time;
   dose !== nothing && (dose = first(dose))
   maxidx = -2
   lastidx = ctlast_idx(conc, time; llq=llq)
-  NCASubject{typeof(conc),   typeof(time), typeof(abstime), eltype(time),
-          typeof(auc_proto), typeof(aumc_proto),
-          typeof(dose),      typeof(lambdaz_proto),
-          typeof(r2_proto),  typeof(llq),   typeof(lastidx),
-          Int, typeof(id),   typeof(group), typeof(volume), typeof(rate)}(id, group,
-            conc, rate, time, start_time, end_time, volume, abstime, maxidx, lastidx, dose, lambdaz_proto, llq,
-            r2_proto,  r2_proto, intercept, unittime, unittime, 0,
-            auc_proto, auc_proto, aumc_proto, :___, :Success)
+  NCASubject(id, group,
+             conc, rate, time, start_time, end_time, volume, abstime, maxidx, lastidx, dose, lambdaz_proto, llq,
+             r2_proto,  r2_proto, intercept, unittime, unittime, 0,
+             auc_proto, auc_proto, aumc_proto, :___, :Success)
 end
 
 showunits(nca::NCASubject, args...) = showunits(stdout, nca, args...)
-function showunits(io::IO, ::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}, indent=0) where {C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}
+function showunits(io::IO, subj::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}, indent=0) where {C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}
   pad   = " "^indent
   if D <: NCADose
     doseT = D.parameters[2]
@@ -203,7 +195,7 @@ function showunits(io::IO, ::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G
   else
     doseT = D
   end
-  multidose = D <: AbstractArray
+  multidose = ismultidose(subj)
   _C = multidose ? eltype(C) : C
   _T = multidose ? eltype(T) : T
   _AUC = multidose ? eltype(AUC) : AUC

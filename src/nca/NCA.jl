@@ -29,20 +29,16 @@ for f in [:lambdaz, :lambdazr2, :lambdazadjr2, :lambdazr, :lambdazintercept, :la
           :tmax_rate, :max_rate, :mid_time_last, :rate_last, :aurc, :aurc_extrap_percent, :urine_volume, :percent_recovered, :amount_recovered
          ]
   @eval $f(conc, time, args...; kwargs...) = $f(NCASubject(conc, time; kwargs...), args...; kwargs...) # f(conc, time) interface
-  @eval function $f(pop::NCAPopulation, args...; label=true, kwargs...) # NCAPopulation handling
+  @eval function $f(pop::NCAPopulation, args...; label=true, verbose=true, kwargs...) # NCAPopulation handling
     ismulti = ismultidose(pop)
     if ismulti
       sol′ = map(enumerate(pop)) do (i, subj)
         try
-          if $f == mat
-            _sol = $f(subj, args...; kwargs...)
-            param  = vcat(_sol, fill(missing, length(subj.dose)-1)) # make `f` as long as the other ones
-          else
-            param = $f(subj, args...; kwargs...)
-          end
+          _sol = $f(subj, args...; verbose=verbose, kwargs...)
+          param = $f == mat ? vcat(_sol, fill(missing, length(subj.dose)-1)) : # make `f` as long as the other ones
+                              $f(subj, args...; verbose=verbose, kwargs...)
         catch
-          @info "ID $(subj.id) errored"
-          #rethrow()
+          verbose && @info "ID $(subj.id) errored"
           param = fill(missing, length(subj.dose))
         end
       end
@@ -50,9 +46,9 @@ for f in [:lambdaz, :lambdazr2, :lambdazadjr2, :lambdazr, :lambdazintercept, :la
     else
       sol = map(pop) do subj
         try
-          return $f(subj, args...; kwargs...)
+          return $f(subj, args...; verbose=verbose, kwargs...)
         catch
-          @info "ID $(subj.id) errored"
+          verbose && @info "ID $(subj.id) errored"
           return missing
         end
       end
