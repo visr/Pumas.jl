@@ -409,6 +409,7 @@ function NCAReport(pop::NCAPopulation; pred=nothing, normalize=nothing, auctype=
            "span"               =>     span,
            "route"              =>     dosetype,
            has_ii && "tau"      =>     tau,
+           "retcode"            =>     retcode,
         ]
   end
   deleteat!(report_pairs, findall(x->x.first isa Bool, report_pairs))
@@ -417,13 +418,13 @@ function NCAReport(pop::NCAPopulation; pred=nothing, normalize=nothing, auctype=
   vals  = [f(pop; label = i == 1, kwargs...) for (i, f) in enumerate(funcs)]
   if sigdigits !== nothing
     for val in vals
-      col = val[!,end-1]
+      col = val[!,end]
       map!(col, col) do x
         x isa Number ? round(ustrip(x), sigdigits=sigdigits)*oneunit(x) : x
       end
     end
   end
-  values = [i == 1 ? val : (rename!(val, names(val)[1]=>name); rename!(val, names(val)[2]=>Symbol(name, :_retcode))) for (i, (val, name)) in enumerate(zip(vals, _names))]
+  values = [i == 1 ? val : (rename!(val, names(val)[1]=>name)) for (i, (val, name)) in enumerate(zip(vals, _names))]
 
   NCAReport(settings, values)
 end

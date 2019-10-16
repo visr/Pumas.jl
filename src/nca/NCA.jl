@@ -33,28 +33,14 @@ for f in [:lambdaz, :lambdazr2, :lambdazadjr2, :lambdazr, :lambdazintercept, :la
     ismulti = ismultidose(pop)
     if ismulti
       sol′ = map(enumerate(pop)) do (i, subj)
-        try
-          _sol = $f(subj, args...; verbose=verbose, kwargs...)
-          param = $f == mat ? vcat(_sol, fill(missing, length(subj.dose)-1)) : # make `f` as long as the other ones
-                              $f(subj, args...; verbose=verbose, kwargs...)
-        catch
-          verbose && @info "ID $(subj.id) errored"
-          param = fill(missing, length(subj.dose))
-        end
+        _sol = $f(subj, args...; verbose=verbose, kwargs...)
+        param = $f == mat ? vcat(_sol, fill(missing, length(subj.dose)-1)) : # make `f` as long as the other ones
+                            $f(subj, args...; verbose=verbose, kwargs...)
       end
       sol = collect(Base.Iterators.flatten(sol′))
     else
-      sol = map(pop) do subj
-        try
-          return $f(subj, args...; verbose=verbose, kwargs...)
-        catch
-          verbose && @info "ID $(subj.id) errored"
-          return missing
-        end
-      end
+      sol = map(subj->$f(subj, args...; verbose=verbose, kwargs...), pop)
     end
-    retcode = map(x->x isa Symbol ? String(x) : :Success, sol)
-    sol = replace(x->x isa Symbol ? missing : x, sol)
     typeof(sol) === Any && (sol = map(identity, sol))
     df = DataFrame()
     if label
@@ -80,7 +66,6 @@ for f in [:lambdaz, :lambdazr2, :lambdazadjr2, :lambdazr, :lambdazintercept, :la
       end
     end
     df.$f = sol
-    setproperty!(df, Symbol($f, :_retcode), retcode)
     return df
   end
 end

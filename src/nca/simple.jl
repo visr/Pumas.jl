@@ -487,7 +487,7 @@ function c0(subj::NCASubject, returnev=false; verbose=true, kwargs...) # `return
   return c0
 end
 
-retcode(subj::NCASubject) = subj.retcode
+retcode(subj::NCASubject; kwargs...) = subj.retcode
 
 #= issue #391
 # The function is originally translated from the R package PKNCA

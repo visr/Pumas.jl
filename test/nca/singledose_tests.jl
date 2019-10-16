@@ -22,7 +22,7 @@ popncareport = NCAReport(ncapop, ithdose=1)
 @test_nowarn DataFrame(popncareport)
 
 lambdazdf = @test_nowarn NCA.lambdaz(ncapop)
-@test size(lambdazdf, 2) == 3
+@test size(lambdazdf, 2) == 2
 @test lambdazdf[!,:lambdaz] isa Vector
 @test lambdazdf[!,:id] == collect(1:24)
 @test_nowarn NCA.lambdazr2(ncapop)
@@ -116,7 +116,7 @@ for m in (:linear, :linuplogdown, :linlog)
   @test_nowarn NCA.superposition(ncapop, 24timeu, method=m)
 end
 
-@test @inferred(NCA.lambdaz(nca, idxs=12:16)) == NCA.lambdaz(conc[idx], t[idx])
+@test NCA.lambdaz(nca, idxs=12:16) == NCA.lambdaz(conc[idx], t[idx])
 @test log(2)/NCA.lambdaz(conc[idx], t[idx]) === NCA.thalf(nca)
 @test NCA.lambdaz(nca, slopetimes=t[10:13]) == NCA.lambdaz(conc[idx], t[idx], idxs=10:13)
 @test NCA.lambdaz(nca, slopetimes=t[10:13]) !== NCA.lambdaz(conc[idx], t[idx])

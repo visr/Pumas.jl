@@ -78,10 +78,10 @@ end
 @inline function iscached(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}, sym::Symbol) where {C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}
   @inbounds begin
     # `points` is initialized to 0
-    sym === :lambdaz && return !(nca.points[1] === 0)
+    sym === :lambdaz && return nca.points === missing || !(first(nca.points) == 0)
     # `auc_last` and `aumc_last` are initialized to -1
-    sym === :auc     && return !(nca.auc_last[1]  === -oneunit(eltype(AUC)))
-    sym === :aumc    && return !(nca.aumc_last[1] === -oneunit(eltype(AUMC)))
+    sym === :auc     && return nca.auc_last  === missing || !(first(nca.auc_last)  == -oneunit(eltype(AUC)))
+    sym === :aumc    && return nca.aumc_last === missing || !(first(nca.aumc_last) == -oneunit(eltype(AUMC)))
   end
 end
 
@@ -115,6 +115,7 @@ end
 function _auc(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}, interval, linear, log, inf, ret_typ;
               auctype, method=:linear, isauc, verbose=true, kwargs...) where {C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}
   # fast return
+  ret_typ = Union{ret_typ, Missing}
   if interval === nothing && nca.method === method
     if auctype === :inf
       _clast = clast(nca; kwargs...)
@@ -181,7 +182,7 @@ function _auc(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}, 
   else
     idx1, idx2 = firstindex(time), lastindex(time)
     # handle C0
-    cacheauc0!(nca, zero(first(nca.auc_0)))
+    cacheauc0!(nca, zero(_first(nca.auc_0)))
     time0 = zero(time[idx1])
     if time[idx1] > time0
       c0′ = c0(nca, true)
@@ -345,7 +346,7 @@ function lambdaz(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT
                  threshold=10, idxs=nothing, slopetimes=nothing, recompute=true, verbose=true, kwargs...
                 )::Union{Missing,eltype(Z)} where {C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}
   if iscached(nca, :lambdaz) && !recompute
-    return lambdaz=first(nca.lambdaz)
+    return _first(nca.lambdaz)
   end
   _F = eltype(F)
   _Z = eltype(Z)
@@ -437,7 +438,7 @@ calculate `lambdaz` before calculating this quantity.
 
 See also [`lambdaz`](@ref).
 """
-lambdaznpoints(nca::NCASubject; kwargs...) = (lambdaz(nca; kwargs...); first(nca.points))
+lambdaznpoints(nca::NCASubject; kwargs...) = (lambdaz(nca; kwargs...); _first(nca.points))
 
 """
   lambdaztimefirst(nca::NCASubject; kwargs...)
@@ -447,7 +448,7 @@ calculate `lambdaz` before calculating this quantity.
 
 See also [`lambdaz`](@ref).
 """
-lambdaztimefirst(nca::NCASubject; kwargs...) = (lambdaz(nca; kwargs...); first(nca.firstpoint))
+lambdaztimefirst(nca::NCASubject; kwargs...) = (lambdaz(nca; kwargs...); _first(nca.firstpoint))
 
 """
   lambdaztimelast(nca::NCASubject; kwargs...)
@@ -457,7 +458,7 @@ calculate `lambdaz` before calculating this quantity.
 
 See also [`lambdaz`](@ref).
 """
-lambdaztimelast(nca::NCASubject; kwargs...) = (lambdaz(nca; kwargs...); first(nca.lastpoint))
+lambdaztimelast(nca::NCASubject; kwargs...) = (lambdaz(nca; kwargs...); _first(nca.lastpoint))
 
 """
     span(nca::NCASubject; kwargs...)
@@ -474,7 +475,7 @@ calculate `lambdaz` before calculating this quantity.
 
 See also [`lambdaz`](@ref).
 """
-lambdazintercept(nca::NCASubject; kwargs...) = (lambdaz(nca; kwargs...); first(nca.intercept))
+lambdazintercept(nca::NCASubject; kwargs...) = (lambdaz(nca; kwargs...); _first(nca.intercept))
 
 
 """
@@ -485,7 +486,7 @@ calculate `lambdaz` before calculating this quantity.
 
 See also [`lambdaz`](@ref).
 """
-lambdazr2(nca::NCASubject; kwargs...) = (lambdaz(nca; kwargs...); first(nca.r2))
+lambdazr2(nca::NCASubject; kwargs...) = (lambdaz(nca; kwargs...); _first(nca.r2))
 
 """
   lambdazr(nca::NCASubject; kwargs...)
@@ -495,7 +496,7 @@ calculate `lambdaz` before calculating this quantity.
 
 See also [`lambdaz`](@ref).
 """
-lambdazr(nca::NCASubject; kwargs...) = (lambdaz(nca; kwargs...); sqrt(first(nca.r2)))
+lambdazr(nca::NCASubject; kwargs...) = (lambdaz(nca; kwargs...); sqrt(_first(nca.r2)))
 
 """
   lambdazadjr2(nca::NCASubject; kwargs...)
@@ -505,4 +506,4 @@ Give the adjusted coefficient of determination (``adjr²``) when calculating
 
 See also [`lambdaz`](@ref).
 """
-lambdazadjr2(nca::NCASubject; kwargs...) = (lambdaz(nca; kwargs...); first(nca.adjr2))
+lambdazadjr2(nca::NCASubject; kwargs...) = (lambdaz(nca; kwargs...); _first(nca.adjr2))
