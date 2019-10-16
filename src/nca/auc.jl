@@ -102,9 +102,9 @@ end
 function cacheauc!(nca::NCASubject, auclast, interval, method, isauc)
   if interval == nothing # only cache when interval is nothing
     if isauc
-      nca.auc_last <: AbstractArray  ? nca.auc_last[1] = auclast  : nca.auc_last = auclast
+      nca.auc_last isa AbstractArray  ? nca.auc_last[1] = auclast  : nca.auc_last = auclast
     else
-      nca.aumc_last <: AbstractArray ? nca.aumc_last[1] = auclast : nca.aumc_last = auclast
+      nca.aumc_last isa AbstractArray ? nca.aumc_last[1] = auclast : nca.aumc_last = auclast
     end
     nca.method = method
   end
@@ -212,7 +212,7 @@ function _auc(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}, 
   end
 
   # cache results
-  cacheauc(nca, auc, interval, method, isauc)
+  cacheauc!(nca, auc, interval, method, isauc)
 
   # add the extrapolation part
   if isaucinf(auctype, interval)
@@ -409,22 +409,22 @@ function lambdaz(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT
 end
 
 function cachelambdaz!(subj::NCASubject, lambdaz=missing, points=missing, firstpoint=missing, lastpoint=missing, r2=missing, maxadjr2=missing, intercept=missing)
-  if subj.lambdaz <: AbstractArray
-    nca.lambdaz[1] = -λ
-    nca.points[1] = points
-    nca.firstpoint[1] = firstpoint
-    nca.lastpoint[1] = lastpoint
-    nca.r2[1] = r2
-    nca.adjr2[1] = maxadjr2
-    nca.intercept[1] = intercept
+  if subj.lambdaz isa AbstractArray
+    subj.lambdaz[1] = lambdaz
+    subj.points[1] = points
+    subj.firstpoint[1] = firstpoint
+    subj.lastpoint[1] = lastpoint
+    subj.r2[1] = r2
+    subj.adjr2[1] = maxadjr2
+    subj.intercept[1] = intercept
   else
-    nca.lambdaz = -λ
-    nca.points = points
-    nca.firstpoint = firstpoint
-    nca.lastpoint = lastpoint
-    nca.r2 = r2
-    nca.adjr2 = maxadjr2
-    nca.intercept = intercept
+    subj.lambdaz = lambdaz
+    subj.points = points
+    subj.firstpoint = firstpoint
+    subj.lastpoint = lastpoint
+    subj.r2 = r2
+    subj.adjr2 = maxadjr2
+    subj.intercept = intercept
   end
   return nothing
 end

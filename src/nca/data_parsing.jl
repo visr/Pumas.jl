@@ -34,7 +34,7 @@ function read_nca(df; group=nothing, kwargs...)
       return pop
     end
     pops = map(i->dfpops[i][!, end], 1:groupnum)
-    NCAPopulation(vcat(pops...))
+    vcat(pops...)
   end
   return pop
 end
@@ -166,6 +166,7 @@ function ___read_nca(df; id=:id, time=:time, conc=:conc, occasion=:occasion,
     end
   end
   # Use broadcast to tighten ncas element type
-  pop = NCAPopulation(identity.(ncas))
+  pop = identity.(ncas)
+  checkncapop(pop)
   return pop
 end

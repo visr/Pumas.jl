@@ -223,13 +223,11 @@ The meaning of each of the list elements is:
   return conc, time, end_time, volume
 end
 
-@inline normalizedose(x::Missing, d) = missing
-@inline normalizedose(x, d::Nothing) = missing
-@inline normalizedose(x::Number, d::NCADose) = x/d.amt
+normalizedose(x::Missing, d) = missing
+normalizedose(x, d::Nothing) = missing
+normalizedose(x::Number, d::NCADose) = x/d.amt
 normalizedose(x::AbstractArray, d::AbstractVector{<:NCADose}) = normalizedose.(x, d)
-@inline function normalizedose(x, subj::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}) where {C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}
-  return normalizedose(x, subj.dose)
-end
+normalizedose(x, subj::NCASubject) = normalizedose(x, subj.dose)
 
 Base.@propagate_inbounds function ithdoseidxs(time, dose, i::Integer)
   m = length(dose)
@@ -257,8 +255,7 @@ Base.@propagate_inbounds function ithdoseidxs(time, dose, i::Integer)
   return idxs
 end
 
-Base.@propagate_inbounds function subject_at_ithdose(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT},
-                                                     i::Integer) where {C,TT,T,tEltype,AUC,AUMC,D<:AbstractArray,Z,F,N,I,P,ID,G,V,R,RT}
+Base.@propagate_inbounds function subject_at_ithdose(nca::NCASubject, i::Integer)
   m = length(nca.dose)
   @boundscheck 1 <= i <= m || throw(BoundsError(nca.dose, i))
   @inbounds begin
@@ -291,7 +288,7 @@ Base.@propagate_inbounds function subject_at_ithdose(nca::NCASubject{C,TT,T,tElt
   end
 end
 
-urine2plasma(pop::NCAPopulation) = NCAPopulation(map(urine2plasma, pop.subjects))
+urine2plasma(pop::NCAPopulation) = map(urine2plasma, pop.subjects)
 function urine2plasma(subj::NCASubject)
   if subj.rate === nothing
     return subj

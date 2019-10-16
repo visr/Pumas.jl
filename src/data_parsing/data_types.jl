@@ -490,5 +490,5 @@ end
 NCASubject(subj::Subject; name=:dv) = convert(NCASubject, subj; name=name)
 
 Base.convert(::Type{NCAPopulation}, population::Population; name=:dv, kwargs...) =
-  NCAPopulation(map(subject -> convert(NCASubject, subject; name=name, kwargs...), population))
-NCAPopulation(population::Population; name=:dv, kwargs...) = convert(NCAPopulation, population; name=name, kwargs...)
+  map(subject -> convert(NCASubject, subject; name=name, kwargs...), population)
+(::Type{NCAPopulation})(population::AbstractVector{T}; name=:dv, kwargs...) where T<:Subject = convert(NCAPopulation, population; name=name, kwargs...)

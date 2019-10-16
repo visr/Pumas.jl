@@ -84,17 +84,28 @@ mutable struct NCASubject{C,T,TT,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}
   aumc_last::Union{Missing,AUMC}
   method::Symbol
   retcode::RT
+  function NCASubject(id, group, conc, rate, time, start_time, end_time, volume,
+                      abstime, maxidx, lastidx, dose, lambdaz, llq, r2, adjr2,
+                      intercept, firstpoint, lastpoint, points, auc_last, auc_0,
+                      aumc_last, method, retcode)
+    new{typeof(conc), typeof(time), typeof(abstime), typeof(firstpoint), typeof(auc_last),
+        typeof(aumc_last), typeof(dose), typeof(lambdaz), typeof(r2), typeof(llq), typeof(lastidx),
+        typeof(points), typeof(id), typeof(group), typeof(volume), typeof(rate), typeof(retcode)
+       }(id, group, conc, rate, time, start_time, end_time, volume, abstime,
+         maxidx, lastidx, dose, lambdaz, llq, r2, adjr2, intercept, firstpoint,
+         lastpoint, points, auc_last, auc_0, aumc_last, method, retcode)
+  end
 end
 
 """
-    NCASubject(conc, time; concu=true, timeu=true, id=1, group=nothing, dose::T=nothing, llq=nothing, lambdaz=nothing, clean=true, check=true, kwargs...)
+    NCASubject(conc, time; concu=true, timeu=true, id=1, group=nothing, dose=nothing, llq=nothing, lambdaz=nothing, clean=true, check=true, kwargs...)
 
 Constructs a NCASubject
 """
 function NCASubject(conc, time;
                     start_time=nothing, end_time=nothing, volume=nothing, concu=true, timeu=true, volumeu=true,
-                    id=1, group=nothing, dose::T=nothing, llq=nothing,
-                    lambdaz=nothing, clean=true, check=true, kwargs...) where T
+                    id=1, group=nothing, dose=nothing, llq=nothing,
+                    lambdaz=nothing, clean=true, check=true, kwargs...)
   time isa AbstractRange && (time = collect(time))
   conc isa AbstractRange && (conc = collect(conc))
   if concu !== true
@@ -111,7 +122,7 @@ function NCASubject(conc, time;
       end_time = map(x -> x === missing ? x : x*timeu, end_time)
     end
   end
-  multidose = T <: AbstractArray && length(dose) > 1
+  multidose = dose isa AbstractArray && length(dose) > 1
   nonmissingeltype(x) = Base.nonmissingtype(eltype(x))
   unitconc = float(oneunit(nonmissingeltype(conc)))
   unittime = float(oneunit(nonmissingeltype(time)))
@@ -232,29 +243,21 @@ function Base.show(io::IO, n::NCASubject)
   showunits(io, n, pad)
 end
 
+const NCAPopulation{T} = AbstractVector{T} where T <: NCASubject
 @noinline dosenumerror() = throw(AssertionError("All subjects in a population must have the same number of doses. Please consider padding your data if you are sure that there are no errors in it."))
-struct NCAPopulation{T<:NCASubject} <: AbstractVector{T}
-  subjects::Vector{T}
-  function NCAPopulation(_pop::Vector{<:NCASubject})
-    E = eltype(_pop)
-    isconcretetype(E) || dosenumerror()
-    if ismultidose(E)
-      ndose = length(_pop[1].dose)
-      for subj in _pop
-        length(subj.dose) == ndose && continue
-        dosenumerror()
-      end
+function checkncapop(pop::NCAPopulation)
+  E = eltype(pop)
+  isconcretetype(E) || dosenumerror()
+  if ismultidose(pop)
+    ndose = length(pop[1].dose)
+    for subj in pop
+      length(subj.dose) == ndose && continue
+      dosenumerror()
     end
-    return new{E}(_pop)
   end
+  return nothing
 end
 
-Base.size(n::NCAPopulation) = size(n.subjects)
-function Base.getindex(n::NCAPopulation, I...)
-  subj = getindex(n.subjects, I...)
-  subj isa Vector ? NCAPopulation(subj) : subj
-end
-Base.setindex!(n::NCAPopulation, X, I...) = setindex!(n.subjects, X, I...)
 Base.show(io::IO, pop::NCAPopulation) = show(io, MIME"text/plain"(), pop)
 function Base.show(io::IO, ::MIME"text/plain", pop::NCAPopulation)
   ids = unique([subj.id for subj in pop])
@@ -264,17 +267,11 @@ function Base.show(io::IO, ::MIME"text/plain", pop::NCAPopulation)
   showunits(io, first(pop), 4)
 end
 
-Base.@pure ismultidose(nca::NCASubject) = ismultidose(typeof(nca))
-Base.@pure ismultidose(nca::NCAPopulation) = ismultidose(eltype(nca.subjects))
-Base.@pure function ismultidose(::Type{NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}}) where {C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}
-  return D <: AbstractArray
-end
+ismultidose(nca::NCASubject) = nca.dose isa AbstractArray
+ismultidose(nca::NCAPopulation) = ismultidose(first(nca))
 
-hasdose(nca::NCASubject) = hasdose(typeof(nca))
-hasdose(nca::NCAPopulation) = hasdose(eltype(nca.subjects))
-function hasdose(::Type{NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}}) where {C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}
-  return D !== Nothing
-end
+hasdose(nca::NCASubject) = nca.dose !== nothing
+hasdose(nca::NCAPopulation) = hasdose(first(nca))
 
 # Summary and report
 struct NCAReport{S,V}
@@ -286,7 +283,7 @@ macro defkwargs(sym, expr...)
   :((nca; kwargs...) -> $sym(nca; $(expr...), kwargs...)) |> esc
 end
 
-NCAReport(nca::NCASubject; kwargs...) = NCAReport(NCAPopulation([nca]); kwargs...)
+NCAReport(nca::NCASubject; kwargs...) = NCAReport([nca]; kwargs...)
 function NCAReport(pop::NCAPopulation; pred=nothing, normalize=nothing, auctype=nothing, # strips out unnecessary user options
                    sigdigits=nothing, kwargs...)
   !hasdose(pop) && @warn "`dose` is not provided. No dependent quantities will be calculated"
