@@ -227,7 +227,7 @@ end
 @inline normalizedose(x, d::Nothing) = missing
 @inline normalizedose(x::Number, d::NCADose) = x/d.amt
 normalizedose(x::AbstractArray, d::AbstractVector{<:NCADose}) = normalizedose.(x, d)
-@inline function normalizedose(x, subj::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R}) where {C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R}
+@inline function normalizedose(x, subj::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}) where {C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}
   return normalizedose(x, subj.dose)
 end
 
@@ -257,8 +257,8 @@ Base.@propagate_inbounds function ithdoseidxs(time, dose, i::Integer)
   return idxs
 end
 
-Base.@propagate_inbounds function subject_at_ithdose(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R},
-                                                     i::Integer) where {C,TT,T,tEltype,AUC,AUMC,D<:AbstractArray,Z,F,N,I,P,ID,G,V,R}
+Base.@propagate_inbounds function subject_at_ithdose(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT},
+                                                     i::Integer) where {C,TT,T,tEltype,AUC,AUMC,D<:AbstractArray,Z,F,N,I,P,ID,G,V,R,RT}
   m = length(nca.dose)
   @boundscheck 1 <= i <= m || throw(BoundsError(nca.dose, i))
   @inbounds begin
@@ -277,15 +277,16 @@ Base.@propagate_inbounds function subject_at_ithdose(nca::NCASubject{C,TT,T,tElt
     firstpoint = view(nca.firstpoint, i)
     lastpoint = view(nca.lastpoint, i)
     points = view(nca.points, i)
+    retcode = view(nca.retcode, nca.recode)
     auc, auc_0, aumc = view(nca.auc_last, i), view(nca.auc_0, i), view(nca.aumc_last, i)
     return NCASubject(
                  nca.id,  nca.group,
                  conc, nothing, time, nothing, nothing, nothing, abstime, # NCA measurements
-                 maxidx,  lastidx,                        # idx cache
-                 dose,                                    # dose
+                 maxidx,  lastidx,                          # idx cache
+                 dose,                                      # dose
                  lambdaz, nca.llq, r2, adjr2, intercept,
-                 firstpoint, lastpoint, points,           # lambdaz related cache
-                 auc, auc_0, aumc, nca.method             # AUC related cache
+                 firstpoint, lastpoint, points,             # lambdaz related cache
+                 auc, auc_0, aumc, nca.method, retcode      # AUC related cache
                 )
   end
 end
@@ -301,7 +302,7 @@ function urine2plasma(subj::NCASubject)
                subj.dose,                               # dose
                subj.lambdaz, subj.llq, subj.r2, subj.adjr2, subj.intercept,
                subj.firstpoint, subj.lastpoint, subj.points,           # lambdaz related cache
-               subj.auc_last, subj.auc_0, subj.aumc_last, subj.method) # AUC related cache
+               subj.auc_last, subj.auc_0, subj.aumc_last, subj.method, subj.retcode) # AUC related cache
   end
 end
 

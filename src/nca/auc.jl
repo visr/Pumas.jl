@@ -75,7 +75,7 @@ end
   return m === Linear ? linear(c1, c2, t1, t2) : log(c1, c2, t1, t2)
 end
 
-@inline function iscached(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R}, sym::Symbol) where {C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R}
+@inline function iscached(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}, sym::Symbol) where {C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}
   @inbounds begin
     # `points` is initialized to 0
     sym === :lambdaz && return !(nca.points[1] === 0)
@@ -90,7 +90,7 @@ function isaucinf(auctype, interval)
   interval === nothing ? auctype === :inf : !isfinite(interval[2])
 end
 
-function cacheauc(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R}, auclast, interval, method, isauc) where {C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R}
+function cacheauc(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}, auclast, interval, method, isauc) where {C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}
   if interval == nothing # only cache when interval is nothing
     if isauc
       AUC <: AbstractArray  ? nca.auc_last[1] = auclast  : nca.auc_last = auclast
@@ -104,8 +104,8 @@ end
 
 getval(::Val{T}) where T = T
 
-function _auc(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R}, IsInternal, interval, linear, log, inf, ret_typ;
-              auctype, method=:linear, isauc, kwargs...) where {C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R}
+function _auc(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}, IsInternal, interval, linear, log, inf, ret_typ;
+              auctype, method=:linear, isauc, kwargs...) where {C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}
   internal = getval(IsInternal)
   # fast return
   if interval === nothing && nca.method === method
@@ -245,7 +245,7 @@ function auc(nca::NCASubject; auctype=:inf, interval=nothing, kwargs...)
 end
 
 # TODO: forward `auc` error
-@inline function auc_nokwarg(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R}, auctype, interval; normalize=false, kwargs...) where {C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R}
+@inline function auc_nokwarg(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}, auctype, interval; normalize=false, kwargs...) where {C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}
   sol = _auc(nca, Val(false), interval, auclinear, auclog, extrapaucinf, eltype(AUC); auctype=auctype, isauc=true, kwargs...)
   normalize && (sol = normalizedose(sol, nca))
   return sol
@@ -274,7 +274,7 @@ function aumc(nca; auctype=:inf, interval=nothing, kwargs...)
   end
 end
 
-@inline function aumc_nokwarg(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R}, auctype, interval; kwargs...) where {C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R}
+@inline function aumc_nokwarg(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}, auctype, interval; kwargs...) where {C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}
   sol = _auc(nca, Val(false), interval, aumclinear, aumclog, extrapaumcinf, eltype(AUMC); auctype=auctype, isauc=false, kwargs...)
   return sol
 end
@@ -343,9 +343,9 @@ fitlog(x, y) = lm(hcat(fill!(similar(x), 1), x), log.(replace(x->iszero(x) ? eps
 
 Calculate terminal elimination rate constant ``λz``.
 """
-function lambdaz(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R};
+function lambdaz(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT};
                  threshold=10, idxs=nothing, slopetimes=nothing, recompute=true, kwargs...
-                )::Union{Symbol,eltype(Z)} where {C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R}
+                )::Union{Symbol,eltype(Z)} where {C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}
   if iscached(nca, :lambdaz) && !recompute
     return lambdaz=first(nca.lambdaz)
   end
