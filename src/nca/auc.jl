@@ -90,10 +90,12 @@ function cleancache!(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,
     fill!(nca.points, 0)
     fill!(nca.auc_last, -oneunit(eltype(AUC)))
     fill!(nca.aumc_last, -oneunit(eltype(AUMC)))
+    fill!(nca.retcode, :Success)
   else
     nca.points = 0
     nca.auc_last  = -oneunit(eltype(AUC))
     nca.aumc_last = -oneunit(eltype(AUMC))
+    nca.retcode = :Success
   end
   return nothing
 end

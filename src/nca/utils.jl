@@ -318,6 +318,8 @@ function cache_ncasubj!(subj1::NCASubject, subj2::NCASubject)
   return nothing
 end
 
-setretcode!(subj::NCASubject, retcode) = subj.retcode = subj.retcode == :Success ? retcode : Symbol(subj.retcode, :_, retcode)
+setretcode!(subj::NCASubject, retcode) = subj.retcode = subj.retcode == :Success ? retcode :
+                                                          occursin(String(subj.retcode), String(retcode)) ? subj.retcode :
+                                                          Symbol(subj.retcode, :_, retcode)
 
 _first(x) = x === missing ? x : first(x)
