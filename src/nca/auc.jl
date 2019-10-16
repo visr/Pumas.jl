@@ -85,6 +85,19 @@ end
   end
 end
 
+function cleancache!(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}; kwargs...) where {C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}
+  if ismultidose(nca)
+    nca.points[1] = 0
+    nca.auc_last[1]  = -oneunit(eltype(AUC))
+    nca.aumc_last[1] = -oneunit(eltype(AUMC))
+  else
+    nca.points = 0
+    nca.auc_last  = -oneunit(eltype(AUC))
+    nca.aumc_last = -oneunit(eltype(AUMC))
+  end
+  return nca
+end
+
 function isaucinf(auctype, interval)
   auctype === :last && return false
   interval === nothing ? auctype === :inf : !isfinite(interval[2])

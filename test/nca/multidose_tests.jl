@@ -54,6 +54,9 @@ ncareport1 = NCAReport(mncapop[1])
 @test_nowarn DataFrame(ncareport1)
 
 popncareport = NCAReport(mncapop)
+@test mncapop[1].points == 0
+@test mncapop[1].auc_last == -1
+@test mncapop[1].aumc_last == -1
 @test_skip display(NCA.to_markdown(popncareport))
 df = @test_nowarn NCA.to_dataframe(popncareport)
 @test count(!ismissing, df.cl_obs) == 24
