@@ -370,7 +370,6 @@ function lambdaz(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT
   λ::_Z = zero(_Z)
   time′ = reinterpret(typeof(one(eltype(time))), time)
   conc′ = reinterpret(typeof(one(eltype(conc))), conc)
-  outlier = false
   _, cmaxidx = conc_extreme(conc, eachindex(conc), <)
   n = length(time)
   if slopetimes === nothing && idxs === nothing
@@ -415,8 +414,10 @@ function lambdaz(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT
     maxadjr2 = oneunit(_F) * adjr²(model)
   end
   if λ ≥ zero(λ)
-    outlier = true
-    @warn "The estimated slope is not negative, got $λ"
+    verbose && @info "ID $(nca.id) errored: the estimated slope is not negative, got $λ"
+    cachelambdaz!(nca)
+    setretcode!(nca, :SlopeIsNotNegative)
+    return missing
   end
   _lambdaz = -λ
   cachelambdaz!(nca, _lambdaz, points, firstpoint, lastpoint, r2, maxadjr2, intercept)
