@@ -320,3 +320,5 @@ function cache_ncasubj!(subj1::NCASubject, subj2::NCASubject)
   subj1.method = subj2.method
   return nothing
 end
+
+setretcode!(subj::NCASubject, retcode) = subj.retcode = subj.retcode == :Success ? retcode : Symbol(subj.retcode, :_, retcode)

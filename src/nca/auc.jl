@@ -102,11 +102,9 @@ function cacheauc(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,R
   nothing
 end
 
-getval(::Val{T}) where T = T
 
-function _auc(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}, IsInternal, interval, linear, log, inf, ret_typ;
+function _auc(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}, interval, linear, log, inf, ret_typ;
               auctype, method=:linear, isauc, kwargs...) where {C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}
-  internal = getval(IsInternal)
   # fast return
   if interval === nothing && nca.method === method
     if auctype === :inf
@@ -185,7 +183,8 @@ function _auc(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}, 
       c0′ = c0(nca, true)
       if c0′ === missing
         @info "ID $(nca.id) errored: AUC calculation cannot proceed, because `c0` gives missing"
-        return internal ? missing : :C0IsMissing #throw(ArgumentError("AUC calculation cannot proceed, because `c0` gives missing"))
+        setretcode!(nca, :C0IsMissing)
+        return missing
       end
       auc_0 = intervalauc(c0′, conc[idx1], time0, time[idx1], idx1-1, maxidx(nca), method, linear, log, ret_typ)
       if nca.auc_0 isa AbstractArray
@@ -244,9 +243,8 @@ function auc(nca::NCASubject; auctype=:inf, interval=nothing, kwargs...)
   end
 end
 
-# TODO: forward `auc` error
 @inline function auc_nokwarg(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}, auctype, interval; normalize=false, kwargs...) where {C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}
-  sol = _auc(nca, Val(false), interval, auclinear, auclog, extrapaucinf, eltype(AUC); auctype=auctype, isauc=true, kwargs...)
+  sol = _auc(nca, interval, auclinear, auclog, extrapaucinf, eltype(AUC); auctype=auctype, isauc=true, kwargs...)
   normalize && (sol = normalizedose(sol, nca))
   return sol
 end
@@ -275,7 +273,7 @@ function aumc(nca; auctype=:inf, interval=nothing, kwargs...)
 end
 
 @inline function aumc_nokwarg(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}, auctype, interval; kwargs...) where {C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}
-  sol = _auc(nca, Val(false), interval, aumclinear, aumclog, extrapaumcinf, eltype(AUMC); auctype=auctype, isauc=false, kwargs...)
+  sol = _auc(nca, interval, aumclinear, aumclog, extrapaumcinf, eltype(AUMC); auctype=auctype, isauc=false, kwargs...)
   return sol
 end
 
@@ -336,8 +334,6 @@ end
 
 fitlog(x, y) = lm(hcat(fill!(similar(x), 1), x), log.(replace(x->iszero(x) ? eps() : x, y)))
 
-# TODO: forward lambdaz
-
 """
     lambdaz(nca::NCASubject; threshold=10, idxs=nothing) -> lambdaz
 
@@ -345,7 +341,7 @@ Calculate terminal elimination rate constant ``λz``.
 """
 function lambdaz(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT};
                  threshold=10, idxs=nothing, slopetimes=nothing, recompute=true, kwargs...
-                )::Union{Symbol,eltype(Z)} where {C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}
+                )::Union{Missing,eltype(Z)} where {C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}
   if iscached(nca, :lambdaz) && !recompute
     return lambdaz=first(nca.lambdaz)
   end
@@ -364,7 +360,8 @@ function lambdaz(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT
     m = min(n-1, threshold-1, n-cmaxidx-1)
     if m < 2
         @info "ID $(nca.id) errored: lambdaz must be calculated from at least three data points after Cmax"
-        return recompute ? :NotEnoughDataAfterCmax : missing
+        setretcode!(nca, :NotEnoughDataAfterCmax)
+        return missing
     end
     idx2 = length(time′)
     for i in 2:m
