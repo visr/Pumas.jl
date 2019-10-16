@@ -6,12 +6,12 @@ function DiffEqSensitivity.gsa(m::PumasModel, subject::Subject, params::NamedTup
     vlowparam = TransformVariables.inverse(trf_ident_, p_range_low)
     vhighparam = TransformVariables.inverse(trf_ident_, p_range_high)
     p_range = [[vlowparam[i], vhighparam[i]] for i in 1:length(vlowparam)]
-    sim_ = simobs(m, population, params, args...; kwargs...)
-    length_vars = append!([0], cumsum([length(sim_[1].observed[key]) for key in vars]))
+    sim_ = simobs(m, subject, params, args...; kwargs...)
+    length_vars = append!([0], cumsum([length(sim_.observed[key]) for key in vars]))
     function f(p)
         param_ = TransformVariables.transform(trf_ident_, p)
         param = (;params..., param_...)
-        sim = simobs(m, population, param, args...; kwargs...)
+        sim = simobs(m, subject, param, args...; kwargs...)
         collect(Iterators.flatten([sim.observed[key] for key in vars]))
     end
     sensitivity = DiffEqSensitivity.gsa(f, p_range, method)
@@ -67,13 +67,13 @@ function sens_result(sens::DiffEqSensitivity.SobolResult, params::NamedTuple, va
                 push!(val_par, sen_p[length_vars[ind]+1:length_vars[ind+1]])
             end
             push!(sensi_1, NamedTuple{keys(trf_ident.transformations)}(val_par))
-            if length(sens.S1_Conf_Int) > 0 
+            if length(sens.S1_Conf_Int) > 0
                 for (conf_int_low, conf_int_high) in zip(sens.S1_Conf_Int[1], sens.S1_Conf_Int[2])
                     push!(conf_ints_low, conf_int_low[length_vars[ind]+1:length_vars[ind+1]])
                     push!(conf_ints_high, conf_int_high[length_vars[ind]+1:length_vars[ind+1]])
                 end
-                push!(sensi_ci_l, TransformVariables.transform(trf_ident, collect(Iterators.flatten(conf_ints_low))))
-                push!(sensi_ci_h, TransformVariables.transform(trf_ident, collect(Iterators.flatten(conf_ints_high))))
+                push!(sensi_ci_l, NamedTuple{keys(trf_ident.transformations)}(conf_ints_low))
+                push!(sensi_ci_h, NamedTuple{keys(trf_ident.transformations)}(conf_ints_high))
             end
             
         end
@@ -91,14 +91,14 @@ function sens_result(sens::DiffEqSensitivity.SobolResult, params::NamedTuple, va
             for sen_p in sens.ST
                 push!(val_par, sen_p[length_vars[ind]+1:length_vars[ind+1]])
             end
-            push!(sensi_T, TransformVariables.transform(trf_ident, collect(Iterators.flatten(val_par))))
+            push!(sensi_T, NamedTuple{keys(trf_ident.transformations)}(val_par))
             if length(sens.ST_Conf_Int) > 0 
                 for (conf_int_low, conf_int_high) in zip(sens.ST_Conf_Int[1], sens.ST_Conf_Int[2])
                     push!(conf_ints_low, conf_int_low[length_vars[ind]+1:length_vars[ind+1]])
                     push!(conf_ints_high, conf_int_high[length_vars[ind]+1:length_vars[ind+1]])
                 end
-                push!(sensiT_ci_l, TransformVariables.transform(trf_ident, collect(Iterators.flatten(conf_ints_low))))
-                push!(sensiT_ci_h, TransformVariables.transform(trf_ident, collect(Iterators.flatten(conf_ints_high))))
+                push!(sensiT_ci_l, NamedTuple{keys(trf_ident.transformations)}(conf_ints_low))
+                push!(sensiT_ci_h, NamedTuple{keys(trf_ident.transformations)}(conf_ints_high))
             end
             
         end
