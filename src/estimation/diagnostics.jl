@@ -25,19 +25,25 @@ function npde(m::PumasModel,
               param::NamedTuple,
               randeffs::NamedTuple,
               nsim::Integer)
-  y = subject.observations.dv
-  sims = [simobs(m, subject, param, randeffs).observed.dv for i in 1:nsim]
-  mean_y = mean(sims)
-  cov_y = Symmetric(cov(sims))
-  Fcov_y = cholesky(cov_y)
-  y_decorr = Fcov_y.U'\(y .- mean_y)
 
-  φ = mean(sims) do y_l
-    y_decorr_l = Fcov_y\(y_l .- mean_y)
-    Int.(y_decorr_l .< y_decorr)
-  end
+  _names = keys(subject.observations)
+  sims = [simobs(m, subject, param, randeffs).observed for i in 1:nsim]
 
-  return quantile.(Normal(), φ)
+  return map(NamedTuple{_names}(_names)) do name
+           y = subject.observations[name]
+           ysims = getproperty.(sims, name)
+           mean_y = mean(ysims)
+           cov_y = Symmetric(cov(ysims))
+           Fcov_y = cholesky(cov_y)
+           y_decorr = Fcov_y.U'\(y .- mean_y)
+
+           φ = mean(ysims) do y_l
+             y_decorr_l = Fcov_y\(y_l .- mean_y)
+             Int.(y_decorr_l .< y_decorr)
+           end
+
+           return quantile.(Normal(), φ)
+         end
 end
 
 struct SubjectResidual{T1, T2, T3, T4}
@@ -594,8 +600,8 @@ function DataFrames.DataFrame(vpred::Vector{<:SubjectPrediction}; include_covari
   df = select!(DataFrame(subjects; include_covariates=include_covariates, include_dvs=false), Not(:evid))
   _keys = keys(first(subjects).observations)
   for name in  _keys
-    df[!,Symbol(string(name)*"_pred")] .= vcat((pred.pred.dv for pred in vpred)...)
-    df[!,Symbol(string(name)*"_ipred")] .= vcat((pred.ipred.dv for pred in vpred)...)
+    df[!,Symbol(string(name)*"_pred")] .= vcat((pred.pred[name] for pred in vpred)...)
+    df[!,Symbol(string(name)*"_ipred")] .= vcat((pred.ipred[name] for pred in vpred)...)
     df[!,:pred_approx] .= vcat((fill(pred.approx, length(pred.subject.time)) for pred in vpred)...)
   end
   df

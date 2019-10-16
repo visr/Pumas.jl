@@ -727,7 +727,7 @@ function _derived_vηorth_gradient(
     return _derived(m, subject, param, randeffs, args...; kwargs...)
   end
   # Construct vector of dual numbers for the random effects to track the partial derivatives
-  cfg = ForwardDiff.JacobianConfig(_transform_derived, vrandeffsorth)
+  cfg = ForwardDiff.JacobianConfig(_transform_derived, vrandeffsorth, ForwardDiff.Chunk{length(vrandeffsorth)}())
 
   ForwardDiff.seed!(cfg.duals, vrandeffsorth, cfg.seeds)
 
@@ -745,7 +745,7 @@ function _mean_derived_vηorth_jacobian(m::PumasModel,
   nt = length(first(dual_derived))
   nrandeffs = length(vrandeffsorth)
   F = map(NamedTuple{keys(subject.observations)}(dual_derived)) do dv
-        Ft = zeros(nrandeffs, nt)
+        Ft = zeros(eltype(ForwardDiff.partials(first(dv).μ).values), nrandeffs, nt)
         for j in eachindex(dv)
           partial_values = ForwardDiff.partials(dv[j].μ).values
           for i = 1:nrandeffs
@@ -1295,7 +1295,7 @@ function _expected_information(m::PumasModel,
   __E_and_V = _param -> _E_and_V(m, subject, TransformVariables.transform(trf, _param), vrandeffsorth, FO(), args...; kwargs...)
 
   # Construct vector of dual numbers for the population parameters to track the partial derivatives
-  cfg = ForwardDiff.JacobianConfig(__E_and_V, vparam)
+  cfg = ForwardDiff.JacobianConfig(__E_and_V, vparam, ForwardDiff.Chunk{length(vparam)}())
   ForwardDiff.seed!(cfg.duals, vparam, cfg.seeds)
 
   # Compute the conditional likelihood and the conditional distributions of the dependent variable per observation while tracking partial derivatives of the random effects
@@ -1381,6 +1381,7 @@ function Statistics.var(vfpm::Vector{<:FittedPumasModel})
   NamedTuple{names}(vars)
 end
 
+# This is called with dual numbered "param"
 function _E_and_V(m::PumasModel,
                   subject::Subject,
                   param::NamedTuple,
@@ -1389,17 +1390,16 @@ function _E_and_V(m::PumasModel,
                   args...; kwargs...)
 
   randeffstransform = totransform(m.random(param))
-  y = subject.observations.dv
-  dist = _derived(m, subject, param, TransformVariables.transform(randeffstransform, vrandeffsorth))
-  F = ForwardDiff.jacobian(
-    _vrandeffs -> begin
-      _randeffs = TransformVariables.transform(randeffstransform, _vrandeffs)
-      return mean.(_derived(m, subject, param, _randeffs).dv)
-    end,
-    vrandeffsorth
-  )
-  V = Symmetric(F*F' + Diagonal(var.(dist.dv)))
-  return mean.(dist.dv), V
+  dist = _derived(m, subject, param, TransformVariables.transform(randeffstransform, vrandeffsorth), args...; kwargs...)
+  E = sum(dv->mean.(dv), NamedTuple{keys(subject.observations)}(dist))
+
+  F = _mean_derived_vηorth_jacobian(m, subject, param, vrandeffsorth, args...; kwargs...)
+
+  _names = keys(subject.observations)
+  V = sum(_names) do name
+        return Symmetric(F[name]*F[name]' + Diagonal(var.(dist[name])))
+      end
+  return E, V
 end
 
 function _E_and_V(m::PumasModel,
