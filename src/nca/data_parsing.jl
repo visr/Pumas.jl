@@ -34,7 +34,7 @@ function read_nca(df; group=nothing, kwargs...)
       return pop
     end
     pops = map(i->dfpops[i][!, end], 1:groupnum)
-    NCAPopulation(vcat(pops...))
+    vcat(pops...)
   end
   return pop
 end
@@ -107,9 +107,14 @@ function ___read_nca(df; id=:id, time=:time, conc=:conc, occasion=:occasion,
   idx  = -1
   # FIXME! This is better written as map(uids) do id it currently triggers a dispatch bug in Julia via CSV
   ncas = Vector{Any}(undef, length(uids))
+  lo = 1
   for (i, id) in enumerate(uids)
     # id's range, and we know that it is sorted
-    idx = findfirst(isequal(id), ids):findlast(isequal(id), ids)
+    # FIXME: ugly optimization
+    lo = loid = findfirst(isequal(id), @view ids[lo:end]) + lo - 1
+    _hiid = findfirst(x->x != id, @view ids[lo:end])
+    lo = hiid = _hiid === nothing ? length(ids) : _hiid + lo - 2
+    idx = loid:hiid
     # the time array for the i-th subject
     subjtime = @view(times[idx])
     if hasdose
@@ -166,6 +171,7 @@ function ___read_nca(df; id=:id, time=:time, conc=:conc, occasion=:occasion,
     end
   end
   # Use broadcast to tighten ncas element type
-  pop = NCAPopulation(identity.(ncas))
+  pop = identity.(ncas)
+  checkncapop(pop)
   return pop
 end
