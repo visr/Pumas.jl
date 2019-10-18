@@ -30,9 +30,9 @@ function IVIVCModel(vitro_data, uir_data, vivo_data;
                     ivivc_model,
                     time_scale=true,
                     time_shift=false,
-                    p=nothing,
-                    lb=nothing,
-                    ub=nothing)
+                    p,
+                    lb,
+                    ub)
   # model the vitro data
   if vitro_model === nothing
     error("Not implemented!!")

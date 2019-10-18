@@ -147,10 +147,3 @@ function _bateman(conc, time, box, p0, ub, lb)
   lb, ub, p0
 end
 
-function get_ivivc_p0_and_bounds(;time_lag, time_shift, intercept)
-  num_p = time_lag + time_shift + intercept + 1
-  p0 = rand(num_p)
-  lb = fill(-Inf, num_p)
-  ub = fill(Inf, num_p)
-  p0, lb, ub
-end
