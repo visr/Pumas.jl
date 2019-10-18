@@ -415,7 +415,7 @@ end
         #σ_prop = 0.3
        )
 
-  @test deviance(theopmodel_foce, theopp, param, Pumas.FOCE()) ≈ 138.90111320972699 rtol=1e-6
+  @test deviance(theopmodel_foce, theopp, param, Pumas.FOCEI()) ≈ 138.90111320972699 rtol=1e-6
 
   foce_estimated_params = (
     θ₁ = 1.67977E+00, #Ka MEAN ABSORPTION RATE CONSTANT for SEX = 1(1/HR)
@@ -464,7 +464,7 @@ end
   # Elapsed estimation time in seconds:     0.27
   # Elapsed covariance time in seconds:     0.19
 
-  o = fit(theopmodel_foce, theopp, param, Pumas.FOCE())
+  o = fit(theopmodel_foce, theopp, param, Pumas.FOCEI())
 
   o_estimates = coef(o)
   o_stderror  = stderror(o)

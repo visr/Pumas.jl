@@ -112,7 +112,7 @@ function conditional_nll(m::PumasModel,
                          subject::Subject,
                          param::NamedTuple,
                          randeffs::NamedTuple,
-                         approx::Union{FO,FOCE,Laplace},
+                         approx::Union{FO,Laplace},
                          args...; kwargs...)
 
   collated_numtype = numtype(m.pre(param, randeffs, subject))
@@ -226,7 +226,7 @@ function _orth_empirical_bayes!(
   m::PumasModel,
   subject::Subject,
   param::NamedTuple,
-  approx::Union{FOCE,FOCEI,Laplace,LaplaceI},
+  approx::Union{FOCEI,Laplace,LaplaceI},
   args...;
   # We explicitly use reltol to compute the right step size for finite difference based gradient
   reltol=DEFAULT_ESTIMATION_RELTOL,
@@ -275,7 +275,7 @@ function empirical_bayes_dist(m::PumasModel,
                               subject::Subject,
                               param::NamedTuple,
                               vrandeffsorth::AbstractVector,
-                              approx::Union{FOCE,FOCEI,Laplace,LaplaceI},
+                              approx::Union{FOCEI,Laplace,LaplaceI},
                               args...; kwargs...)
 
   parset = m.random(param)
@@ -446,7 +446,7 @@ function marginal_nll(m::PumasModel,
                       subject::Subject,
                       param::NamedTuple,
                       vrandeffsorth::AbstractVector,
-                      approx::Union{FOCE,FOCEI,Laplace,LaplaceI},
+                      approx::Union{FOCEI,Laplace,LaplaceI},
                       args...; kwargs...)::promote_type(numtype(param), numtype(vrandeffsorth))
 
   dv_∂²l∂η² = ∂²l∂η²(m, subject, param, vrandeffsorth, approx, args...; kwargs...)
@@ -454,7 +454,7 @@ function marginal_nll(m::PumasModel,
   sum(map(_dv_∂²l∂η² -> _marginal_nll(_dv_∂²l∂η², vrandeffsorth, approx), dv_∂²l∂η²))
 end
 
-function _marginal_nll(_dv_∂²l∂η², vrandeffsorth, approx::Union{FOCE,FOCEI,Laplace,LaplaceI})
+function _marginal_nll(_dv_∂²l∂η², vrandeffsorth, approx::Union{FOCEI,Laplace,LaplaceI})
   nl, _, W = _dv_∂²l∂η²
   if isfinite(nl)
     # If the factorization succeeded then compute the approximate marginal likelihood. Otherwise, return Inf.
@@ -539,7 +539,7 @@ function marginal_nll_gradient!(g::AbstractVector,
                                 subject::Subject,
                                 vparam::AbstractVector,
                                 vrandeffsorth::AbstractVector,
-                                approx::Union{FOCE,FOCEI,Laplace,LaplaceI},
+                                approx::Union{FOCEI,Laplace,LaplaceI},
                                 trf::TransformVariables.TransformTuple,
                                 args...;
                                 # We explicitly use reltol to compute the right step size for finite difference based gradient
@@ -641,7 +641,7 @@ function _fdrelstep(model::PumasModel, param, reltol, ::Val{:central})
   end
 end
 
-# Similar to the version for FOCE, FOCEI, Laplace, and LaplaceI
+# Similar to the version for FOCEI, Laplace, and LaplaceI
 # but much simpler since the expansion point in η is fixed. Hence,
 # the gradient is simply the partial derivative in θ
 function marginal_nll_gradient!(g::AbstractVector,
@@ -761,7 +761,7 @@ function ∂²l∂η²(m::PumasModel,
                 subject::Subject,
                 param::NamedTuple,
                 vrandeffsorth::AbstractVector,
-                approx::Union{FO,FOI,FOCE,FOCEI},
+                approx::Union{FO,FOI,FOCEI},
                 args...; kwargs...)
 
   # Compute the conditional likelihood and the conditional distributions of the dependent variable
@@ -777,11 +777,7 @@ function ∂²l∂η²(m::PumasModel,
   dv_dist = NamedTuple{dv_keys}(_derived_dist)
   dv_zip = NamedTuple{dv_keys}(zip(dv_keys, subject.observations, dv_dist))
 
-  if approx isa FOCE
-    return map(d -> _∂²l∂η²(d[1], d[2], d[3], m, subject, param, vrandeffsorth, approx, args...; kwargs...), dv_zip)
-  else
-    return map(d -> _∂²l∂η²(d[2], d[3], approx), dv_zip)
-  end
+  return map(d -> _∂²l∂η²(d[2], d[3], approx), dv_zip)
 end
 
 function _∂²l∂η²(obsdv::AbstractVector, dv::AbstractVector{<:Normal}, ::FO)
@@ -857,91 +853,10 @@ function _is_homoscedastic(dv::AbstractVector{<:Union{Normal,LogNormal}})
 end
 _is_homoscedastic(::Any) = throw(ArgumentError("Distribution not supported"))
 
-function _∂²l∂η²(dv_name::Symbol,
-                 obsdv,
-                 dv_d::AbstractVector{<:Union{Normal,LogNormal}},
-                 m::PumasModel,
-                 subject::Subject,
-                 param::NamedTuple,
-                 vrandeffsorth::AbstractVector,
-                 ::FOCE,
-                 args...; kwargs...)
-
-  # Compute the conditional likelihood and the conditional distributions of the dependent variable per observation for η=0
-  # If the model is homoscedastic, it is not necessary to recompute the variances at η=0
-  if _is_homoscedastic(dv_d)
-    return _∂²l∂η²(obsdv, dv_d, first(dv_d), FOCE())
-  else # in the Heteroscedastic case, compute the variances at η=0
-    randeffstransform = totransform(m.random(param))
-    # should just pass this in from the outside to only calculate once
-    dist_0 = _derived(
-      m,
-      subject,
-      param,
-      TransformVariables.transform(randeffstransform, zero(vrandeffsorth)),
-      args...;
-      kwargs...
-      )
-
-    # Compute the Hessian approxmation in the random effect vector η
-    return _∂²l∂η²(obsdv, dv_d, dist_0[dv_name], FOCE())
-  end
-end
 
 _ofdisttype(dμ, dσ) = _ofdisttype(dμ; σ=dσ.σ)
 _ofdisttype(d::Normal; μ=d.μ, σ=d.σ)    = Normal(μ, σ)
 _ofdisttype(d::LogNormal; μ=d.μ, σ=d.σ) = LogNormal(μ, σ)
-
-# Homoscedastic case
-function _∂²l∂η²(obsdv::AbstractVector, dv_d::AbstractVector{<:Union{Normal,LogNormal}}, dv0::Union{Normal,LogNormal}, ::FOCE)
-  # Loop through the distribution vector and extract derivative information
-  nrfx = length(ForwardDiff.partials(first(dv_d).μ))
-
-  # Initialize Hessian matrix and gradient vector
-  ## FIXME! Careful about hardcoding for Float64 here
-  H    = @SMatrix zeros(nrfx, nrfx)
-  nl   = 0.0
-  σ = ForwardDiff.value(dv0.σ)
-
-  for j in eachindex(dv_d)
-    obj = obsdv[j]
-    if ismissing(obj)
-      continue
-    end
-    dvj = dv_d[j]
-    f = SVector(ForwardDiff.partials(dvj.μ).values)/σ
-
-    H  += f*f'
-    nl -= _lpdf(_ofdisttype(dvj; μ=ForwardDiff.value(dvj.μ), σ=σ), obj)
-  end
-
-  return nl, nothing, H
-end
-
-# Heteroscedastic case
-function _∂²l∂η²(obsdv::AbstractVector, dv_d::AbstractVector{<:Normal}, dv0::AbstractVector{<:Normal}, ::FOCE)
-  # Loop through the distribution vector and extract derivative information
-  nrfx = length(ForwardDiff.partials(first(dv_d).μ))
-
-  # Initialize Hessian matrix and gradient vector
-  ## FIXME! Careful about hardcoding for Float64 here
-  H    = @SMatrix zeros(nrfx, nrfx)
-  nl   = 0.0
-
-  for j in eachindex(dv_d)
-    obj = obsdv[j]
-    if ismissing(obj)
-      continue
-    end
-    dvj = dv_d[j]
-    σ   = dv0[j].σ
-    f   = SVector(ForwardDiff.partials(dvj.μ).values)/σ
-    H  += f*f'
-    nl -= _lpdf(_ofdisttype(dvj; μ=ForwardDiff.value(dvj.μ), σ=σ), obj)
-  end
-
-  return nl, nothing, H
-end
 
 function _∂²l∂η²(obsdv::AbstractVector, dv::AbstractVector{<:Union{Normal,LogNormal}}, ::FOCEI)
   # Loop through the distribution vector and extract derivative information
@@ -1400,30 +1315,6 @@ function _E_and_V(m::PumasModel,
         return Symmetric(F[name]*F[name]' + Diagonal(var.(dist[name])))
       end
   return E, V
-end
-
-function _E_and_V(m::PumasModel,
-                  subject::Subject,
-                  param::NamedTuple,
-                  vrandeffsorth::AbstractVector,
-                  ::FOCE,
-                  args...; kwargs...)
-
-  randeffstransform = totransform(m.random(param))
-  y = subject.observations.dv
-  dist0 = _derived(m, subject, param, TransformVariables.transform(randeffstransform, zero(vrandeffsorth)))
-  dist  = _derived(m, subject, param, TransformVariables.transform(randeffstransform, vrandeffsorth))
-
-  F = ForwardDiff.jacobian(
-    _vrandeffs -> begin
-      _randeffs = TransformVariable.transform(randeffstransform, _vrandeffs)
-      return mean.(_derived(m, subject, param, _randeffs).dv)
-    end,
-    vrandeffsorth
-  )
-  V = Symmetric(F*F' + Diagonal(var.(dist0.dv)))
-
-  return mean.(dist.dv) .- F*vrandeffsorth, V
 end
 
 # Some type piracy for the time being

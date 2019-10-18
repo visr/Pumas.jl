@@ -143,7 +143,7 @@ end
 
      @testset "testing model: $_model, with $_approx approximation" for
        _model in ("additive", "proportional", "exponential"),
-         _approx in (Pumas.FO(), Pumas.FOCE(), Pumas.FOCEI(), Pumas.Laplace(), Pumas.LaplaceI())
+         _approx in (Pumas.FO(), Pumas.FOCEI(), Pumas.Laplace(), Pumas.LaplaceI())
        # LaplaceI and proportional is very unstable and succeeds/fails depending on architecture
        # so we can't mark this as @test_broken
        if _model != "proportional" || _approx != Pumas.LaplaceI()
@@ -212,5 +212,5 @@ end # begin
          )
      o = fit(theopmodel_solver_fo, theopp, param, Pumas.FO())
      o = fit(theopmodel_solver_fo, theoppnew, param, Pumas.FO())
-     
+
 end # begin

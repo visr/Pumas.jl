@@ -74,6 +74,5 @@ using Pumas, Test
 
   # FO/FOCE(I) not supported for
   @test_throws ArgumentError fit(poisson_model, df, param, Pumas.FO())
-  @test_throws ArgumentError fit(poisson_model, df, param, Pumas.FOCE())
   @test_throws ArgumentError fit(poisson_model, df, param, Pumas.FOCEI())
 end

@@ -42,7 +42,6 @@ using Pumas, CSV
     param = init_param(wang_additive)
 
     @test deviance(wang_additive, data, param, Pumas.FO())   ≈  0.026 atol = 1e-3
-    @test deviance(wang_additive, data, param, Pumas.FOCE()) ≈ -2.059 atol = 1e-3
   end
 
   @testset "Proportional error model" begin
@@ -77,7 +76,6 @@ using Pumas, CSV
     param = init_param(wang_proportional)
 
     @test deviance(wang_proportional, data, param, Pumas.FO())    ≈ 39.213 atol = 1e-3
-    @test deviance(wang_proportional, data, param, Pumas.FOCE())  ≈ 39.207 atol = 1e-3
     @test deviance(wang_proportional, data, param, Pumas.FOCEI()) ≈ 39.458 atol = 1e-3
   end
 
@@ -159,7 +157,6 @@ using Pumas, CSV
     # Compute the correction term which is sum(log(dg⁻¹(y)/dy)) where g=exp in our case so g⁻¹=log
     correction_term = 2*sum(sum(log.(d.observations.dv)) for d in data)
     @test deviance(wang_exponential, data, param, Pumas.FO())    ≈ deviance(wang_exponential_log, data_log, param, Pumas.FO())    + correction_term
-    @test deviance(wang_exponential, data, param, Pumas.FOCE())  ≈ deviance(wang_exponential_log, data_log, param, Pumas.FOCE())  + correction_term
     @test deviance(wang_exponential, data, param, Pumas.FOCEI()) ≈ deviance(wang_exponential_log, data_log, param, Pumas.FOCEI()) + correction_term
   end
 end

@@ -33,7 +33,7 @@ using Pumas, Test, StatsFuns
     param = (θ₁=0.01, θ₂=0.001, Ω=fill(1.0, 1, 1))
 
     @testset "testing with $approx approximation" for
-        approx in (Pumas.FO(), Pumas.FOCE(), Pumas.FOCEI(), Pumas.Laplace(), Pumas.LaplaceI())
+        approx in (Pumas.FO(), Pumas.FOCEI(), Pumas.Laplace(), Pumas.LaplaceI())
 
         if approx == Pumas.LaplaceI()
             param = coef(fit(mdsl, data, param, approx))

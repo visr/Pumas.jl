@@ -46,7 +46,7 @@ param = init_param(mdsl1)
       mdsl1,
       data[i],
       param,
-      Pumas.FOCE()
+      Pumas.FOCEI()
     )
   ),
   10000
@@ -63,7 +63,7 @@ param = init_param(mdsl1)
       mdsl1,
       data[i],
       param,
-      Pumas.FOCE()
+      Pumas.FOCEI()
     )
   ),
   10000

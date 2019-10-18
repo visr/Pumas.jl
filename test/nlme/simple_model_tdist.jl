@@ -44,6 +44,5 @@ end
 
 # Not yet supported
 @test_throws ArgumentError deviance(tdist, data, param, Pumas.FO())
-@test_throws ArgumentError deviance(tdist, data, param, Pumas.FOCE())
 @test_throws ArgumentError deviance(tdist, data, param, Pumas.FOCEI())
 @test deviance(tdist, data, param, Pumas.LaplaceI()) ≈ 57.112537604068990 rtol=1e-6
