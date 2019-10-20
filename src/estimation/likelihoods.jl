@@ -486,7 +486,7 @@ function marginal_nll(m::PumasModel,
 
   randeffstransform = totransform(m.random(param))
 
-  integrand = _vrandeffsorth -> exp(
+  integrand = (_vrandeffsorth,nothing) -> exp(
     -conditional_nll(
       m,
       subject,
