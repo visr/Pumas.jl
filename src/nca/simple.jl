@@ -270,7 +270,7 @@ end
 Bioavailability is the ratio of two AUC values.
 ``Bioavailability (F) = (AUC_0^\\infty_{po}/Dose_{po})/(AUC_0^\\infty_{iv}/Dose_{iv})``
 """
-function bioav(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R}; ithdose=missing, kwargs...) where {C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R}
+function bioav(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}; ithdose=missing, kwargs...) where {C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}
   n = nca.dose isa AbstractArray ? length(nca.dose) : 1
   ismissing(ithdose) && return n == 1 ? missing : fill(missing, n)
   multidose = n > 1
@@ -296,7 +296,7 @@ end
 #
 #Total drug clearance
 #"""
-#function cl(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R}; ithdose=missing, kwargs...) where {C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R}
+#function cl(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}; ithdose=missing, kwargs...) where {C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}
 #  nca.dose === nothing && return missing
 #  _clf = clf(nca; kwargs...)
 #  @show 1
@@ -487,6 +487,8 @@ function c0(subj::NCASubject, returnev=false; verbose=true, kwargs...) # `return
   return c0
 end
 
+retcode(subj::NCASubject; kwargs...) = subj.retcode
+
 #= issue #391
 # The function is originally translated from the R package PKNCA
 """
@@ -562,11 +564,11 @@ end
 
 # TODO: user input lambdaz, clast, and tlast?
 # TODO: multidose?
-function superposition(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R},
+function superposition(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT},
                        tau::Number, ntau=Inf, args...;
                        doseamount=nothing, additionaltime::Vector=T[],
                        steadystatetol::Number=1e-3, method=:linear,
-                       kwargs...) where {C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R}
+                       kwargs...) where {C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}
   D === Nothing && throw(ArgumentError("Dose must be known to compute superposition"))
   !(ntau isa Integer) && ntau != Inf && throw(ArgumentError("ntau must be an integer or Inf"))
   tau < oneunit(tau) && throw(ArgumentError("ntau must be an integer or Inf"))

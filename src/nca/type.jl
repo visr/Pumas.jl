@@ -53,7 +53,7 @@ function Base.show(io::IO, n::NCADose)
 end
 
 # any changes in here must be reflected to ./simple.jl, too
-mutable struct NCASubject{C,T,TT,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R}
+mutable struct NCASubject{C,T,TT,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}
   # allow id to be non-int, e.g. 001-100-1001 or STUD011001
   id::ID
   group::G
@@ -71,29 +71,41 @@ mutable struct NCASubject{C,T,TT,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R}
   maxidx::I
   lastidx::I
   dose::D
-  lambdaz::Z
-  llq::N
-  r2::F
-  adjr2::F
-  intercept::F
-  firstpoint::tEltype
-  lastpoint::tEltype
-  points::P
-  auc_last::AUC
-  auc_0::AUC
-  aumc_last::AUMC
+  lambdaz::Union{Missing,Z}
+  llq::Union{Missing,N}
+  r2::Union{Missing,F}
+  adjr2::Union{Missing,F}
+  intercept::Union{Missing,F}
+  firstpoint::Union{Missing,tEltype}
+  lastpoint::Union{Missing,tEltype}
+  points::Union{Missing,P}
+  auc_last::Union{Missing,AUC}
+  auc_0::Union{Missing,AUC}
+  aumc_last::Union{Missing,AUMC}
   method::Symbol
+  retcode::RT
+  function NCASubject(id, group, conc, rate, time, start_time, end_time, volume,
+                      abstime, maxidx, lastidx, dose, lambdaz, llq, r2, adjr2,
+                      intercept, firstpoint, lastpoint, points, auc_last, auc_0,
+                      aumc_last, method, retcode)
+    new{typeof(conc), typeof(time), typeof(abstime), typeof(firstpoint), typeof(auc_last),
+        typeof(aumc_last), typeof(dose), typeof(lambdaz), typeof(r2), typeof(llq), typeof(lastidx),
+        typeof(points), typeof(id), typeof(group), typeof(volume), typeof(rate), typeof(retcode)
+       }(id, group, conc, rate, time, start_time, end_time, volume, abstime,
+         maxidx, lastidx, dose, lambdaz, llq, r2, adjr2, intercept, firstpoint,
+         lastpoint, points, auc_last, auc_0, aumc_last, method, retcode)
+  end
 end
 
 """
-    NCASubject(conc, time; concu=true, timeu=true, id=1, group=nothing, dose::T=nothing, llq=nothing, lambdaz=nothing, clean=true, check=true, kwargs...)
+    NCASubject(conc, time; concu=true, timeu=true, id=1, group=nothing, dose=nothing, llq=nothing, lambdaz=nothing, clean=true, check=true, kwargs...)
 
 Constructs a NCASubject
 """
 function NCASubject(conc, time;
                     start_time=nothing, end_time=nothing, volume=nothing, concu=true, timeu=true, volumeu=true,
-                    id=1, group=nothing, dose::T=nothing, llq=nothing,
-                    lambdaz=nothing, clean=true, check=true, kwargs...) where T
+                    id=1, group=nothing, dose=nothing, llq=nothing,
+                    lambdaz=nothing, clean=true, check=true, kwargs...)
   time isa AbstractRange && (time = collect(time))
   conc isa AbstractRange && (conc = collect(conc))
   if concu !== true
@@ -110,7 +122,7 @@ function NCASubject(conc, time;
       end_time = map(x -> x === missing ? x : x*timeu, end_time)
     end
   end
-  multidose = T <: AbstractArray && length(dose) > 1
+  multidose = dose isa AbstractArray && length(dose) > 1
   nonmissingeltype(x) = Base.nonmissingtype(eltype(x))
   unitconc = float(oneunit(nonmissingeltype(conc)))
   unittime = float(oneunit(nonmissingeltype(time)))
@@ -140,16 +152,12 @@ function NCASubject(conc, time;
     time = map(x->x[2], ct)
     maxidx  = fill(-2, n)
     lastidx = @. ctlast_idx(conc, time; llq=llq)
-    return NCASubject{typeof(conc), typeof(time), typeof(abstime), eltype(time),
-                      Vector{typeof(auc_proto)}, Vector{typeof(aumc_proto)},
-                      typeof(dose), Vector{typeof(lambdaz_proto)},
-                      Vector{typeof(r2_proto)}, typeof(llq), typeof(lastidx),
-                      Vector{Int}, typeof(id), typeof(group), Nothing, Nothing}(id, group,
-                        conc, nothing, time, #= no multidose urine =# nothing, nothing, nothing, abstime,
-                        maxidx, lastidx, dose, fill(lambdaz_proto, n), llq,
-                        fill(r2_proto, n), fill(r2_proto, n), fill(intercept, n),
-                        fill(-unittime, n), fill(-unittime, n), fill(0, n),
-                        fill(auc_proto, n), fill(auc_proto, n), fill(aumc_proto, n), :___)
+    return NCASubject(id, group,
+                      conc, nothing, time, #= no multidose urine =# nothing, nothing, nothing, abstime,
+                      maxidx, lastidx, dose, fill(lambdaz_proto, n), llq,
+                      fill(r2_proto, n), fill(r2_proto, n), fill(intercept, n),
+                      fill(-unittime, n), fill(-unittime, n), fill(0, n),
+                      fill(auc_proto, n), fill(auc_proto, n), fill(aumc_proto, n), :___, fill(:Success, n))
   end
   isurine = volume !== nothing
   volume = isurine ? volume .* volumeu : nothing
@@ -182,18 +190,14 @@ function NCASubject(conc, time;
   dose !== nothing && (dose = first(dose))
   maxidx = -2
   lastidx = ctlast_idx(conc, time; llq=llq)
-  NCASubject{typeof(conc),   typeof(time), typeof(abstime), eltype(time),
-          typeof(auc_proto), typeof(aumc_proto),
-          typeof(dose),      typeof(lambdaz_proto),
-          typeof(r2_proto),  typeof(llq),   typeof(lastidx),
-          Int, typeof(id),   typeof(group), typeof(volume), typeof(rate)}(id, group,
-            conc, rate, time, start_time, end_time, volume, abstime, maxidx, lastidx, dose, lambdaz_proto, llq,
-            r2_proto,  r2_proto, intercept, unittime, unittime, 0,
-            auc_proto, auc_proto, aumc_proto, :___)
+  NCASubject(id, group,
+             conc, rate, time, start_time, end_time, volume, abstime, maxidx, lastidx, dose, lambdaz_proto, llq,
+             r2_proto,  r2_proto, intercept, unittime, unittime, 0,
+             auc_proto, auc_proto, aumc_proto, :___, :Success)
 end
 
 showunits(nca::NCASubject, args...) = showunits(stdout, nca, args...)
-function showunits(io::IO, ::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R}, indent=0) where {C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R}
+function showunits(io::IO, subj::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}, indent=0) where {C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}
   pad   = " "^indent
   if D <: NCADose
     doseT = D.parameters[2]
@@ -202,7 +206,7 @@ function showunits(io::IO, ::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G
   else
     doseT = D
   end
-  multidose = D <: AbstractArray
+  multidose = ismultidose(subj)
   _C = multidose ? eltype(C) : C
   _T = multidose ? eltype(T) : T
   _AUC = multidose ? eltype(AUC) : AUC
@@ -239,29 +243,21 @@ function Base.show(io::IO, n::NCASubject)
   showunits(io, n, pad)
 end
 
+const NCAPopulation{T} = AbstractVector{T} where T <: NCASubject
 @noinline dosenumerror() = throw(AssertionError("All subjects in a population must have the same number of doses. Please consider padding your data if you are sure that there are no errors in it."))
-struct NCAPopulation{T<:NCASubject} <: AbstractVector{T}
-  subjects::Vector{T}
-  function NCAPopulation(_pop::Vector{<:NCASubject})
-    E = eltype(_pop)
-    isconcretetype(E) || dosenumerror()
-    if ismultidose(E)
-      ndose = length(_pop[1].dose)
-      for subj in _pop
-        length(subj.dose) == ndose && continue
-        dosenumerror()
-      end
+function checkncapop(pop::NCAPopulation)
+  E = eltype(pop)
+  isconcretetype(E) || dosenumerror()
+  if ismultidose(pop)
+    ndose = length(pop[1].dose)
+    for subj in pop
+      length(subj.dose) == ndose && continue
+      dosenumerror()
     end
-    return new{E}(_pop)
   end
+  return nothing
 end
 
-Base.size(n::NCAPopulation) = size(n.subjects)
-function Base.getindex(n::NCAPopulation, I...)
-  subj = getindex(n.subjects, I...)
-  subj isa Vector ? NCAPopulation(subj) : subj
-end
-Base.setindex!(n::NCAPopulation, X, I...) = setindex!(n.subjects, X, I...)
 Base.show(io::IO, pop::NCAPopulation) = show(io, MIME"text/plain"(), pop)
 function Base.show(io::IO, ::MIME"text/plain", pop::NCAPopulation)
   ids = unique([subj.id for subj in pop])
@@ -271,17 +267,11 @@ function Base.show(io::IO, ::MIME"text/plain", pop::NCAPopulation)
   showunits(io, first(pop), 4)
 end
 
-Base.@pure ismultidose(nca::NCASubject) = ismultidose(typeof(nca))
-Base.@pure ismultidose(nca::NCAPopulation) = ismultidose(eltype(nca.subjects))
-Base.@pure function ismultidose(::Type{NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R}}) where {C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R}
-  return D <: AbstractArray
-end
+ismultidose(nca::NCASubject) = nca.dose isa AbstractArray
+ismultidose(nca::NCAPopulation) = ismultidose(first(nca))
 
-hasdose(nca::NCASubject) = hasdose(typeof(nca))
-hasdose(nca::NCAPopulation) = hasdose(eltype(nca.subjects))
-function hasdose(::Type{NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R}}) where {C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R}
-  return D !== Nothing
-end
+hasdose(nca::NCASubject) = nca.dose !== nothing
+hasdose(nca::NCAPopulation) = hasdose(first(nca))
 
 # Summary and report
 struct NCAReport{S,V}
@@ -293,7 +283,7 @@ macro defkwargs(sym, expr...)
   :((nca; kwargs...) -> $sym(nca; $(expr...), kwargs...)) |> esc
 end
 
-NCAReport(nca::NCASubject; kwargs...) = NCAReport(NCAPopulation([nca]); kwargs...)
+NCAReport(nca::NCASubject; kwargs...) = NCAReport([nca]; kwargs...)
 function NCAReport(pop::NCAPopulation; pred=nothing, normalize=nothing, auctype=nothing, # strips out unnecessary user options
                    sigdigits=nothing, kwargs...)
   !hasdose(pop) && @warn "`dose` is not provided. No dependent quantities will be calculated"
@@ -419,6 +409,7 @@ function NCAReport(pop::NCAPopulation; pred=nothing, normalize=nothing, auctype=
            "span"               =>     span,
            "route"              =>     dosetype,
            has_ii && "tau"      =>     tau,
+           "retcode"            =>     retcode,
         ]
   end
   deleteat!(report_pairs, findall(x->x.first isa Bool, report_pairs))
@@ -433,7 +424,7 @@ function NCAReport(pop::NCAPopulation; pred=nothing, normalize=nothing, auctype=
       end
     end
   end
-  values = [i == 1 ? val : rename!(val, names(val)[1]=>name) for (i, (val, name)) in enumerate(zip(vals, _names))]
+  values = [i == 1 ? val : (rename!(val, names(val)[1]=>name)) for (i, (val, name)) in enumerate(zip(vals, _names))]
 
   NCAReport(settings, values)
 end
@@ -484,7 +475,7 @@ function Base.convert(::Type{Markdown.MD}, report::NCAReport)
   return Markdown.parse(String(take!(_io)))
 end
 
-@recipe function f(subj::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R}; linear=true, loglinear=true) where {C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R}
+@recipe function f(subj::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}; linear=true, loglinear=true) where {C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}
   subj = urine2plasma(subj)
   istwoplots = linear && loglinear
   istwoplots && (layout --> (1, 2))
@@ -520,7 +511,7 @@ end
   end
 end
 
-@recipe function f(pop::NCAPopulation{NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R}}; linear=true, loglinear=true) where {C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R}
+@recipe function f(pop::NCAPopulation{NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}}; linear=true, loglinear=true) where {C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}
   pop = urine2plasma(pop)
   istwoplots = linear && loglinear
   istwoplots && (layout --> (1, 2))

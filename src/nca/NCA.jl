@@ -26,29 +26,22 @@ for f in [:lambdaz, :lambdazr2, :lambdazadjr2, :lambdazr, :lambdazintercept, :la
           :interpextrapconc, :auc, :auclast, :auctau, :aumc, :aumclast, :aumctau, :auc_extrap_percent, :aumc_extrap_percent, :auc_back_extrap_percent,
           :bioav, :tlag, :mrt, :mat, :tau, :cavgss, :fluctuation, :accumulationindex,
           :swing, :n_samples, :doseamt, :dosetype,
-          :tmax_rate, :max_rate, :mid_time_last, :rate_last, :aurc, :aurc_extrap_percent, :urine_volume, :percent_recovered, :amount_recovered
+          :tmax_rate, :max_rate, :mid_time_last, :rate_last, :aurc, :aurc_extrap_percent, :urine_volume, :percent_recovered, :amount_recovered, :retcode,
          ]
   @eval $f(conc, time, args...; kwargs...) = $f(NCASubject(conc, time; kwargs...), args...; kwargs...) # f(conc, time) interface
-  @eval function $f(pop::NCAPopulation, args...; label=true, kwargs...) # NCAPopulation handling
+  @eval function $f(pop::NCAPopulation, args...; label=true, verbose=true, kwargs...) # NCAPopulation handling
     ismulti = ismultidose(pop)
     if ismulti
       sol′ = map(enumerate(pop)) do (i, subj)
-        try
-          if $f == mat
-            _sol = $f(subj, args...; kwargs...)
-            param  = vcat(_sol, fill(missing, length(subj.dose)-1)) # make `f` as long as the other ones
-          else
-            param = $f(subj, args...; kwargs...)
-          end
-        catch
-          @info "ID $(subj.id) errored"
-          rethrow()
-        end
+        _sol = $f(subj, args...; verbose=verbose, kwargs...)
+        param = $f == mat ? vcat(_sol, fill(missing, length(subj.dose)-1)) : # make `f` as long as the other ones
+                            $f(subj, args...; verbose=verbose, kwargs...)
       end
       sol = collect(Base.Iterators.flatten(sol′))
     else
-      sol = map(subj -> $f(subj, args...; kwargs...), pop)
+      sol = map(subj->$f(subj, args...; verbose=verbose, kwargs...), pop)
     end
+    typeof(sol) === Any && (sol = map(identity, sol))
     df = DataFrame()
     if label
       _repeat(x, n) = n == 1 ? x : repeat(x, inner=n)
@@ -93,15 +86,9 @@ for f in [:c0, :clast, :tlast, :cmax, :cmaxss, :tmax, :cmin, :cminss, :tmin, :ct
           :cavgss, :tau, :auctau, :aumctau, :auc_extrap_percent, :aumc_extrap_percent, :auc_back_extrap_percent, :accumulationindex, :swing, :vss, :cl, :_cl, :_clf, :vz, :_vz, :_vzf,
           :lambdaz, :lambdazr2, :lambdazadjr2, :lambdazr, :lambdazintercept, :lambdaznpoints, :lambdaztimefirst, :lambdaztimelast, :span,
           :n_samples, :doseamt, :dosetype]
-  @eval function $f(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R}, args...; kwargs...) where {C,TT,T,tEltype,AUC,AUMC,D<:AbstractArray,Z,F,N,I,P,ID,G,V,R}
+  @eval function $f(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}, args...; kwargs...) where {C,TT,T,tEltype,AUC,AUMC,D<:AbstractArray,Z,F,N,I,P,ID,G,V,R,RT}
     obj = map(eachindex(nca.dose)) do i
-      local subj
-      try
-        subj = subject_at_ithdose(nca, i)
-      catch e
-        @info "Errored at $(i)th occasion"
-        rethrow()
-      end
+      subj = subject_at_ithdose(nca, i)
       $f(subj, args...; kwargs...)
     end
   end

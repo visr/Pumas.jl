@@ -75,36 +75,63 @@ end
   return m === Linear ? linear(c1, c2, t1, t2) : log(c1, c2, t1, t2)
 end
 
-@inline function iscached(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R}, sym::Symbol) where {C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R}
+@inline function iscached(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}, sym::Symbol) where {C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}
   @inbounds begin
     # `points` is initialized to 0
-    sym === :lambdaz && return !(nca.points[1] === 0)
+    sym === :lambdaz && return nca.points === missing || !(first(nca.points) == 0)
     # `auc_last` and `aumc_last` are initialized to -1
-    sym === :auc     && return !(nca.auc_last[1]  === -oneunit(eltype(AUC)))
-    sym === :aumc    && return !(nca.aumc_last[1] === -oneunit(eltype(AUMC)))
+    sym === :auc     && return nca.auc_last  === missing || !(first(nca.auc_last)  == -oneunit(eltype(AUC)))
+    sym === :aumc    && return nca.aumc_last === missing || !(first(nca.aumc_last) == -oneunit(eltype(AUMC)))
   end
 end
+
+function cleancache!(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}) where {C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}
+  if nca.points isa AbstractArray
+    fill!(nca.points, 0)
+    fill!(nca.auc_last, -oneunit(eltype(AUC)))
+    fill!(nca.aumc_last, -oneunit(eltype(AUMC)))
+    fill!(nca.retcode, :Success)
+  else
+    nca.points = 0
+    nca.auc_last  = -oneunit(eltype(AUC))
+    nca.aumc_last = -oneunit(eltype(AUMC))
+    nca.retcode = :Success
+  end
+  return nothing
+end
+cleancache!(pop::NCAPopulation) = foreach(cleancache!, pop)
 
 function isaucinf(auctype, interval)
   auctype === :last && return false
   interval === nothing ? auctype === :inf : !isfinite(interval[2])
 end
 
-function cacheauc(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R}, auclast, interval, method, isauc) where {C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R}
+function cacheauc0!(nca, auc0)
+  if nca.auc_0 isa AbstractArray
+    nca.auc_0[1] = auc0
+  else
+    nca.auc_0 = auc0
+  end
+  nothing
+end
+
+function cacheauc!(nca::NCASubject, auclast, interval, method, isauc)
   if interval == nothing # only cache when interval is nothing
     if isauc
-      AUC <: AbstractArray  ? nca.auc_last[1] = auclast  : nca.auc_last = auclast
+      nca.auc_last isa AbstractArray  ? nca.auc_last[1] = auclast  : nca.auc_last = auclast
     else
-      AUMC <: AbstractArray ? nca.aumc_last[1] = auclast : nca.aumc_last = auclast
+      nca.aumc_last isa AbstractArray ? nca.aumc_last[1] = auclast : nca.aumc_last = auclast
     end
     nca.method = method
   end
   nothing
 end
 
-function _auc(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R}, interval, linear, log, inf, ret_typ;
-              auctype, method=:linear, isauc, kwargs...) where {C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R}
+
+function _auc(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}, interval, linear, log, inf, ret_typ;
+              auctype, method=:linear, isauc, verbose=true, kwargs...) where {C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}
   # fast return
+  ret_typ = Union{ret_typ, Missing}
   if interval === nothing && nca.method === method
     if auctype === :inf
       _clast = clast(nca; kwargs...)
@@ -127,12 +154,12 @@ function _auc(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R}, int
   # type assert `auc`
   auc::ret_typ = zero(ret_typ)
   if _clast === missing
+    cacheauc!(nca, auc, interval, method, isauc)
     if all(x->x<=nca.llq, conc)
-      auc = zero(auc)
-      cacheauc(nca, auc, interval, method, isauc)
       return auc
     else
-      error("Unknown error with missing `tlast` but non-BLQ concentrations")
+      verbose && @info "Unknown error with missing `tlast` but non-BLQ concentrations"
+      return missing
     end
   end
 
@@ -170,23 +197,20 @@ function _auc(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R}, int
     end
   else
     idx1, idx2 = firstindex(time), lastindex(time)
-    auc = zero(auc)
     # handle C0
-    if nca.auc_0 isa AbstractArray
-      nca.auc_0[1] = zero(nca.auc_0[1])
-    else
-      nca.auc_0 = zero(nca.auc_0)
-    end
+    cacheauc0!(nca, zero(_first(nca.auc_0)))
     time0 = zero(time[idx1])
     if time[idx1] > time0
       c0′ = c0(nca, true)
-      c0′ === missing && throw(ArgumentError("AUC calculation cannot proceed, because `c0` gives missing"))
-      auc_0 = intervalauc(c0′, conc[idx1], time0, time[idx1], idx1-1, maxidx(nca), method, linear, log, ret_typ)
-      if nca.auc_0 isa AbstractArray
-        nca.auc_0[1] = auc_0
-      else
-        nca.auc_0 = auc_0
+      if c0′ === missing
+        verbose && @info "ID $(nca.id) errored: AUC calculation cannot proceed, because `c0` gives missing"
+        setretcode!(nca, :C0IsMissing)
+        cacheauc!(nca, missing, interval, method, isauc)
+        cacheauc0!(nca, missing)
+        return missing
       end
+      auc_0 = intervalauc(c0′, conc[idx1], time0, time[idx1], idx1-1, maxidx(nca), method, linear, log, ret_typ)
+      cacheauc0!(nca, auc_0)
       auc += auc_0
     end
   end
@@ -205,7 +229,7 @@ function _auc(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R}, int
   end
 
   # cache results
-  cacheauc(nca, auc, interval, method, isauc)
+  cacheauc!(nca, auc, interval, method, isauc)
 
   # add the extrapolation part
   if isaucinf(auctype, interval)
@@ -238,7 +262,7 @@ function auc(nca::NCASubject; auctype=:inf, interval=nothing, kwargs...)
   end
 end
 
-@inline function auc_nokwarg(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R}, auctype, interval; normalize=false, kwargs...) where {C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R}
+@inline function auc_nokwarg(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}, auctype, interval; normalize=false, kwargs...) where {C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}
   sol = _auc(nca, interval, auclinear, auclog, extrapaucinf, eltype(AUC); auctype=auctype, isauc=true, kwargs...)
   normalize && (sol = normalizedose(sol, nca))
   return sol
@@ -267,7 +291,7 @@ function aumc(nca; auctype=:inf, interval=nothing, kwargs...)
   end
 end
 
-@inline function aumc_nokwarg(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R}, auctype, interval; kwargs...) where {C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R}
+@inline function aumc_nokwarg(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}, auctype, interval; kwargs...) where {C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}
   sol = _auc(nca, interval, aumclinear, aumclog, extrapaumcinf, eltype(AUMC); auctype=auctype, isauc=false, kwargs...)
   return sol
 end
@@ -334,11 +358,11 @@ fitlog(x, y) = lm(hcat(fill!(similar(x), 1), x), log.(replace(x->iszero(x) ? eps
 
 Calculate terminal elimination rate constant ``λz``.
 """
-function lambdaz(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R};
-                 threshold=10, idxs=nothing, slopetimes=nothing, recompute=true, kwargs...
-                )::eltype(Z) where {C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R}
+function lambdaz(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT};
+                 threshold=10, idxs=nothing, slopetimes=nothing, recompute=true, verbose=true, kwargs...
+                )::Union{Missing,eltype(Z)} where {C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}
   if iscached(nca, :lambdaz) && !recompute
-    return lambdaz=first(nca.lambdaz)
+    return _first(nca.lambdaz)
   end
   _F = eltype(F)
   _Z = eltype(Z)
@@ -348,12 +372,16 @@ function lambdaz(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R};
   λ::_Z = zero(_Z)
   time′ = reinterpret(typeof(one(eltype(time))), time)
   conc′ = reinterpret(typeof(one(eltype(conc))), conc)
-  outlier = false
   _, cmaxidx = conc_extreme(conc, eachindex(conc), <)
   n = length(time)
   if slopetimes === nothing && idxs === nothing
     m = min(n-1, threshold-1, n-cmaxidx-1)
-    m < 2 && throw(ArgumentError("ID $(nca.id) errored: lambdaz must be calculated from at least three data points after Cmax"))
+    if m < 2
+        verbose && @info "ID $(nca.id) errored: lambdaz must be calculated from at least three data points after Cmax"
+        cachelambdaz!(nca)
+        setretcode!(nca, :NotEnoughDataAfterCmax)
+        return missing
+    end
     idx2 = length(time′)
     for i in 2:m
       idx1 = idx2-i
@@ -388,27 +416,35 @@ function lambdaz(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R};
     maxadjr2 = oneunit(_F) * adjr²(model)
   end
   if λ ≥ zero(λ)
-    outlier = true
-    @warn "The estimated slope is not negative, got $λ"
+    verbose && @info "ID $(nca.id) errored: the estimated slope is not negative, got $λ"
+    cachelambdaz!(nca)
+    setretcode!(nca, :SlopeIsNotNegative)
+    return missing
   end
-  if Z <: AbstractArray
-    nca.lambdaz[1] = -λ
-    nca.points[1] = points
-    nca.firstpoint[1] = firstpoint
-    nca.lastpoint[1] = lastpoint
-    nca.r2[1] = r2
-    nca.adjr2[1] = maxadjr2
-    nca.intercept[1] = intercept
+  _lambdaz = -λ
+  cachelambdaz!(nca, _lambdaz, points, firstpoint, lastpoint, r2, maxadjr2, intercept)
+  return _lambdaz
+end
+
+function cachelambdaz!(subj::NCASubject, lambdaz=missing, points=missing, firstpoint=missing, lastpoint=missing, r2=missing, maxadjr2=missing, intercept=missing)
+  if subj.lambdaz isa AbstractArray
+    subj.lambdaz[1] = lambdaz
+    subj.points[1] = points
+    subj.firstpoint[1] = firstpoint
+    subj.lastpoint[1] = lastpoint
+    subj.r2[1] = r2
+    subj.adjr2[1] = maxadjr2
+    subj.intercept[1] = intercept
   else
-    nca.lambdaz = -λ
-    nca.points = points
-    nca.firstpoint = firstpoint
-    nca.lastpoint = lastpoint
-    nca.r2 = r2
-    nca.adjr2 = maxadjr2
-    nca.intercept = intercept
+    subj.lambdaz = lambdaz
+    subj.points = points
+    subj.firstpoint = firstpoint
+    subj.lastpoint = lastpoint
+    subj.r2 = r2
+    subj.adjr2 = maxadjr2
+    subj.intercept = intercept
   end
-  return lambdaz=-λ
+  return nothing
 end
 
 """
@@ -419,7 +455,7 @@ calculate `lambdaz` before calculating this quantity.
 
 See also [`lambdaz`](@ref).
 """
-lambdaznpoints(nca::NCASubject; kwargs...) = (lambdaz(nca; kwargs...); first(nca.points))
+lambdaznpoints(nca::NCASubject; kwargs...) = (lambdaz(nca; kwargs...); _first(nca.points))
 
 """
   lambdaztimefirst(nca::NCASubject; kwargs...)
@@ -429,7 +465,7 @@ calculate `lambdaz` before calculating this quantity.
 
 See also [`lambdaz`](@ref).
 """
-lambdaztimefirst(nca::NCASubject; kwargs...) = (lambdaz(nca; kwargs...); first(nca.firstpoint))
+lambdaztimefirst(nca::NCASubject; kwargs...) = (lambdaz(nca; kwargs...); _first(nca.firstpoint))
 
 """
   lambdaztimelast(nca::NCASubject; kwargs...)
@@ -439,7 +475,7 @@ calculate `lambdaz` before calculating this quantity.
 
 See also [`lambdaz`](@ref).
 """
-lambdaztimelast(nca::NCASubject; kwargs...) = (lambdaz(nca; kwargs...); first(nca.lastpoint))
+lambdaztimelast(nca::NCASubject; kwargs...) = (lambdaz(nca; kwargs...); _first(nca.lastpoint))
 
 """
     span(nca::NCASubject; kwargs...)
@@ -456,7 +492,7 @@ calculate `lambdaz` before calculating this quantity.
 
 See also [`lambdaz`](@ref).
 """
-lambdazintercept(nca::NCASubject; kwargs...) = (lambdaz(nca; kwargs...); first(nca.intercept))
+lambdazintercept(nca::NCASubject; kwargs...) = (lambdaz(nca; kwargs...); _first(nca.intercept))
 
 
 """
@@ -467,7 +503,7 @@ calculate `lambdaz` before calculating this quantity.
 
 See also [`lambdaz`](@ref).
 """
-lambdazr2(nca::NCASubject; kwargs...) = (lambdaz(nca; kwargs...); first(nca.r2))
+lambdazr2(nca::NCASubject; kwargs...) = (lambdaz(nca; kwargs...); _first(nca.r2))
 
 """
   lambdazr(nca::NCASubject; kwargs...)
@@ -477,7 +513,7 @@ calculate `lambdaz` before calculating this quantity.
 
 See also [`lambdaz`](@ref).
 """
-lambdazr(nca::NCASubject; kwargs...) = (lambdaz(nca; kwargs...); sqrt(first(nca.r2)))
+lambdazr(nca::NCASubject; kwargs...) = (lambdaz(nca; kwargs...); sqrt(_first(nca.r2)))
 
 """
   lambdazadjr2(nca::NCASubject; kwargs...)
@@ -487,4 +523,4 @@ Give the adjusted coefficient of determination (``adjr²``) when calculating
 
 See also [`lambdaz`](@ref).
 """
-lambdazadjr2(nca::NCASubject; kwargs...) = (lambdaz(nca; kwargs...); first(nca.adjr2))
+lambdazadjr2(nca::NCASubject; kwargs...) = (lambdaz(nca; kwargs...); _first(nca.adjr2))

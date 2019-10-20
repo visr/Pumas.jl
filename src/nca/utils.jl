@@ -223,13 +223,11 @@ The meaning of each of the list elements is:
   return conc, time, end_time, volume
 end
 
-@inline normalizedose(x::Missing, d) = missing
-@inline normalizedose(x, d::Nothing) = missing
-@inline normalizedose(x::Number, d::NCADose) = x/d.amt
+normalizedose(x::Missing, d) = missing
+normalizedose(x, d::Nothing) = missing
+normalizedose(x::Number, d::NCADose) = x/d.amt
 normalizedose(x::AbstractArray, d::AbstractVector{<:NCADose}) = normalizedose.(x, d)
-@inline function normalizedose(x, subj::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R}) where {C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R}
-  return normalizedose(x, subj.dose)
-end
+normalizedose(x, subj::NCASubject) = normalizedose(x, subj.dose)
 
 Base.@propagate_inbounds function ithdoseidxs(time, dose, i::Integer)
   m = length(dose)
@@ -257,8 +255,7 @@ Base.@propagate_inbounds function ithdoseidxs(time, dose, i::Integer)
   return idxs
 end
 
-Base.@propagate_inbounds function subject_at_ithdose(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R},
-                                                     i::Integer) where {C,TT,T,tEltype,AUC,AUMC,D<:AbstractArray,Z,F,N,I,P,ID,G,V,R}
+Base.@propagate_inbounds function subject_at_ithdose(nca::NCASubject, i::Integer)
   m = length(nca.dose)
   @boundscheck 1 <= i <= m || throw(BoundsError(nca.dose, i))
   @inbounds begin
@@ -277,20 +274,21 @@ Base.@propagate_inbounds function subject_at_ithdose(nca::NCASubject{C,TT,T,tElt
     firstpoint = view(nca.firstpoint, i)
     lastpoint = view(nca.lastpoint, i)
     points = view(nca.points, i)
+    retcode = view(nca.retcode, i)
     auc, auc_0, aumc = view(nca.auc_last, i), view(nca.auc_0, i), view(nca.aumc_last, i)
     return NCASubject(
                  nca.id,  nca.group,
                  conc, nothing, time, nothing, nothing, nothing, abstime, # NCA measurements
-                 maxidx,  lastidx,                        # idx cache
-                 dose,                                    # dose
+                 maxidx,  lastidx,                          # idx cache
+                 dose,                                      # dose
                  lambdaz, nca.llq, r2, adjr2, intercept,
-                 firstpoint, lastpoint, points,           # lambdaz related cache
-                 auc, auc_0, aumc, nca.method             # AUC related cache
+                 firstpoint, lastpoint, points,             # lambdaz related cache
+                 auc, auc_0, aumc, nca.method, retcode      # AUC related cache
                 )
   end
 end
 
-urine2plasma(pop::NCAPopulation) = NCAPopulation(map(urine2plasma, pop.subjects))
+urine2plasma(pop::NCAPopulation) = map(urine2plasma, pop.subjects)
 function urine2plasma(subj::NCASubject)
   if subj.rate === nothing
     return subj
@@ -301,7 +299,7 @@ function urine2plasma(subj::NCASubject)
                subj.dose,                               # dose
                subj.lambdaz, subj.llq, subj.r2, subj.adjr2, subj.intercept,
                subj.firstpoint, subj.lastpoint, subj.points,           # lambdaz related cache
-               subj.auc_last, subj.auc_0, subj.aumc_last, subj.method) # AUC related cache
+               subj.auc_last, subj.auc_0, subj.aumc_last, subj.method, subj.retcode) # AUC related cache
   end
 end
 
@@ -319,3 +317,9 @@ function cache_ncasubj!(subj1::NCASubject, subj2::NCASubject)
   subj1.method = subj2.method
   return nothing
 end
+
+setretcode!(subj::NCASubject, retcode) = subj.retcode = subj.retcode == :Success ? retcode :
+                                                          occursin(String(subj.retcode), String(retcode)) ? subj.retcode :
+                                                          Symbol(subj.retcode, :_, retcode)
+
+_first(x) = x === missing ? x : first(x)
