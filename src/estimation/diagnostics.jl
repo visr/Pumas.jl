@@ -25,19 +25,25 @@ function npde(m::PumasModel,
               param::NamedTuple,
               randeffs::NamedTuple,
               nsim::Integer)
-  y = subject.observations.dv
-  sims = [simobs(m, subject, param, randeffs).observed.dv for i in 1:nsim]
-  mean_y = mean(sims)
-  cov_y = Symmetric(cov(sims))
-  Fcov_y = cholesky(cov_y)
-  y_decorr = Fcov_y.U'\(y .- mean_y)
 
-  φ = mean(sims) do y_l
-    y_decorr_l = Fcov_y\(y_l .- mean_y)
-    Int.(y_decorr_l .< y_decorr)
-  end
+  _names = keys(subject.observations)
+  sims = [simobs(m, subject, param, randeffs).observed for i in 1:nsim]
 
-  return quantile.(Normal(), φ)
+  return map(NamedTuple{_names}(_names)) do name
+           y = subject.observations[name]
+           ysims = getproperty.(sims, name)
+           mean_y = mean(ysims)
+           cov_y = Symmetric(cov(ysims))
+           Fcov_y = cholesky(cov_y)
+           y_decorr = Fcov_y.U'\(y .- mean_y)
+
+           φ = mean(ysims) do y_l
+             y_decorr_l = Fcov_y\(y_l .- mean_y)
+             Int.(y_decorr_l .< y_decorr)
+           end
+
+           return quantile.(Normal(), φ)
+         end
 end
 
 struct SubjectResidual{T1, T2, T3, T4}
@@ -224,7 +230,7 @@ function pred(m::PumasModel,
 
   randeffs = TransformVariables.transform(totransform(m.random(param)), vrandeffsorth)
   dist = _derived(m, subject, param, randeffs)
-  return map(d -> mean.(d), dist)
+  return map(d -> mean.(d), NamedTuple{keys(subject.observations)}(dist))
 end
 
 
@@ -541,27 +547,37 @@ function StatsBase.predict(model::PumasModel, subject::Subject, param, approx, v
   ipred = _ipredict(model, subject, param, approx, vvrandeffsorth)
   SubjectPrediction(pred, ipred, subject, approx)
 end
-
-function StatsBase.predict(fpm::FittedPumasModel, approx=fpm.approx; nsim=nothing, timegrid=false, newdata=false, useEBEs=true)
+StatsBase.predict(fpm::FittedPumasModel, approx::LikelihoodApproximation; kwargs...) = predict(fpm, fpm.data, approx; kwargs...)
+function StatsBase.predict(fpm::FittedPumasModel, subjects::Population=fpm.data, approx=fpm.approx; nsim=nothing, timegrid=false,  useEBEs=true)
   if !useEBEs
     error("Sampling from the omega distribution is not yet implemented.")
-  end
-  if !(newdata==false)
-    error("Using data different than that used to fit the model is not yet implemented.")
   end
   if !(timegrid==false)
     error("Using custom time grids is not yet implemented.")
   end
-
-  subjects = fpm.data
-
-  if approx == fpm.approx
-    vvrandeffsorth = fpm.vvrandeffsorth
-  else
-    # re-estimate under approx
-    vvrandeffsorth = [_orth_empirical_bayes(fpm.model, subject, coef(fpm), approx) for subject in subjects]
+  if !(nsim isa Nothing)
+    error("Using simulated subjects is not yet implemented.")
   end
-  [predict(fpm.model, subjects[i], coef(fpm), approx, vvrandeffsorth[i]) for i = 1:length(subjects)]
+
+  _estimate_bayes = approx == fpm.approx ? false : true
+
+  if _estimate_bayes
+    # re-estimate under approx
+    return map(subject -> predict(fpm, subject, approx; timegrid=timegrid), subjects)
+  else
+    return map(i -> predict(fpm.model, subjects[i], coef(fpm), approx, fpm.vvrandeffsorth[i]), 1:length(subjects))
+  end
+end
+
+function StatsBase.predict(fpm::FittedPumasModel,
+                           subject::Subject,
+                           approx::LikelihoodApproximation=fpm.approx,
+                           vrandeffsorth = _orth_empirical_bayes(fpm.model, subject, coef(fpm), approx);
+                           timegrid=false)
+  # We have not yet implemented custom time grids
+  !(timegrid==false) && error("Using custom time grids is not yet implemented.")
+
+  predict(fpm.model, subject, coef(fpm), approx, vrandeffsorth)
 end
 
 function _predict(model, subject, param, approx::FO, vvrandeffsorth)
@@ -594,8 +610,8 @@ function DataFrames.DataFrame(vpred::Vector{<:SubjectPrediction}; include_covari
   df = select!(DataFrame(subjects; include_covariates=include_covariates, include_dvs=false), Not(:evid))
   _keys = keys(first(subjects).observations)
   for name in  _keys
-    df[!,Symbol(string(name)*"_pred")] .= vcat((pred.pred.dv for pred in vpred)...)
-    df[!,Symbol(string(name)*"_ipred")] .= vcat((pred.ipred.dv for pred in vpred)...)
+    df[!,Symbol(string(name)*"_pred")] .= vcat((pred.pred[name] for pred in vpred)...)
+    df[!,Symbol(string(name)*"_ipred")] .= vcat((pred.ipred[name] for pred in vpred)...)
     df[!,:pred_approx] .= vcat((fill(pred.approx, length(pred.subject.time)) for pred in vpred)...)
   end
   df
@@ -637,9 +653,10 @@ struct FittedPumasModelInspection{T1, T2, T3, T4}
   wres::T3
   ebes::T4
 end
-StatsBase.predict(i::FittedPumasModelInspection) = i.pred
-wresiduals(i::FittedPumasModelInspection) = i.wres
-empirical_bayes(i::FittedPumasModelInspection) = i.ebes
+StatsBase.predict(insp::FittedPumasModelInspection) = insp.pred
+StatsBase.predict(insp::FittedPumasModelInspection, args...; kwargs...) = predict(insp.o, args...; kwargs...)
+wresiduals(insp::FittedPumasModelInspection) = insp.wres
+empirical_bayes(insp::FittedPumasModelInspection) = insp.ebes
 
 function inspect(fpm; pred_approx=fpm.approx, infer_approx=fpm.approx,
                     wres_approx=fpm.approx, ebes_approx=fpm.approx)

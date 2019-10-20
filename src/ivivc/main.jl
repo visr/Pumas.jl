@@ -27,7 +27,12 @@ function IVIVCModel(vitro_data, uir_data, vivo_data;
                     vitro_model_metric=:aic,
                     uir_frac = 1.0,
                     deconvo_method=:wn,
-                    ivivc_model=:two)
+                    ivivc_model,
+                    time_scale=true,
+                    time_shift=false,
+                    p,
+                    lb,
+                    ub)
   # model the vitro data
   if vitro_model === nothing
     error("Not implemented!!")
@@ -58,30 +63,14 @@ function IVIVCModel(vitro_data, uir_data, vivo_data;
     all_auc_inf[i] = _dict
   end
 
-  # IVIVC models:
-  #       1. Fabs(t) = AbsScale*Fdiss(t*Tscale)
-  #       2. Fabs(t) = AbsScale*Fdiss(t*Tscale - Tshift)
-  #       3. Fabs(t) = AbsScale*Fdiss(t*Tscale - Tshift) - AbsBase
-
   avg_fabs = _avg_fabs(all_fabs)
-  # optimization
-  if ivivc_model == :two
-    m = (form, time, x) -> x[1] * vitro_data[1][form](time * x[2])
-    p = [0.8, 0.5]
-    ub = [1.25, 1.25]
-    lb = [0.0, 0.0]
-  elseif ivivc_model == :three
-    m = (form, time, x) -> x[1] * vitro_data[1][form](time * x[2] .- x[3])
-    p = [0.8, 0.5, 0.6]
-    ub = [1.25, 1.25, 1.25]
-    lb = [0.0, 0.0, 0.0]
-  elseif ivivc_model == :four
-    m = (form, time, x) -> (x[1] * vitro_data[1][form](time * x[2] .- x[3])) .- x[4]
-    p = [0.8, 0.5, 0.6, 0.6]
-    ub = [1.25, 1.25, 1.25, 1.25]
-    lb = [0.0, 0.0, 0.0, 0.0]
-  else
-    error("Incorrect keyword for IVIVC model!!")
+
+  # IVIVC modeling
+  function m(form, time, p)
+    Tscale = 1.0; Tshift = 0.0; i = 0
+    if time_scale Tscale = p[1]; i += 1 end
+    if time_shift Tshift = p[2]; i += 1 end
+    ivivc_model(vitro_data[1][form](time*Tscale .- Tshift), p[i+1:end])
   end
   function errfun(x)
     err = 0.0
@@ -103,19 +92,11 @@ end
 function predict_vivo(A::IVIVCModel, form)
   if(A.deconvo_method != :wn) error("Not implemented yet!!") end
   all_auc_inf, kel, pmin, vitro_data, vivo_data = A.all_auc_inf, A.kel, A.pmin, A.vitro_data, A.vivo_data
-  if A.vitro_model == :emax 
-    rate_fun = e_der
-  elseif A.vitro_model == :we
-    rate_fun = w_der
-  else
-    error("not implemented yet!!")
-  end
+
+  td_ivivc = t -> ForwardDiff.derivative(t -> A.ivivc_model(form, t, pmin), t)
+
   # ODE Formulation
-  Tshift = 0.0
-  if length(pmin) > 2
-    Tshift = pmin[3]
-  end
-  f(c, p, t) = kel * all_auc_inf[1][form] * pmin[1] * pmin[2] * rate_fun(t * pmin[2] .- Tshift, vitro_data[1][form].pmin) - kel * c
+  f(c, p, t) = kel * all_auc_inf[1][form] * td_ivivc(t) - kel * c
   u0 = 0.0
   tspan = (vivo_data[1][form].time[1], vivo_data[1][form].time[end])
   prob = ODEProblem(f, u0, tspan)
