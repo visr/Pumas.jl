@@ -504,7 +504,7 @@ function marginal_nll(m::PumasModel,
                                  high,
                                  batch=batch)
 
-  sol = solve(intprob,quant.quadalg,reltol=ireltol,
+  sol = solve(intprob,approx.quadalg,reltol=ireltol,
               abstol=iabstol,maxiters = imaxiters)
   -log(sol.u)
 end
