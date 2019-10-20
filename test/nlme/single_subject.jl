@@ -28,7 +28,7 @@ end
 
 param = init_param(mdsl1)
 
-for approx in (Pumas.FO, Pumas.FOI, Pumas.FOCE, Pumas.FOCEI, Pumas.Laplace, Pumas.LaplaceI, Pumas.HCubeQuad)
+for approx in (Pumas.FO, Pumas.FOI, Pumas.FOCE, Pumas.FOCEI, Pumas.Laplace, Pumas.LaplaceI, Pumas.LLQuad())
     @test_throws ArgumentError fit(mdsl1, data[1], param, approx())
 end
 

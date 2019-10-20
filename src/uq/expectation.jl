@@ -1,10 +1,10 @@
-abstract type UncertaintyQuantificationAlgorithm end
-struct KoopmanQuant{T} <: UncertaintyQuantificationAlgorithm
+abstract type ExpectationAlgorithm end
+struct KoopmanExpectation{T} <: ExpectationAlgorithm
     quadalg::T
 end
-struct MonteCarloQuant <: UncertaintyQuantificationAlgorithm end
+struct MonteCarloExpectation <: ExpectationAlgorithm end
 
-function uq_windowcost(g, quant::KoopmanQuant,
+function expectation(g, quant::KoopmanExpectation,
                        m::PumasModel, subject::Subject,
                        param_dists,
                        args...;
@@ -26,12 +26,12 @@ function uq_windowcost(g, quant::KoopmanQuant,
                 abstol=iabstol,maxiters = imaxiters)
 end
 
-function uq_windowcost(g, ::MonteCarloQuant,
+function expectation(g, ::MonteCarloExpectation,
                        m::PumasModel, subject::Subject,
                        param_dists,
                        args...;imaxiters=10000,
                        kwargs...)
    pop = [deepcopy(subject) for i in 1:imaxiters]
    results = g.(simobs(m,pop,param_dists,args...;kwargs...))
-   mean(results),std(results)
+   mean(results)
 end

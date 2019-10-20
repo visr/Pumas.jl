@@ -1058,7 +1058,7 @@ end
     end
 
     @testset "Cubature based estimation deviance test" begin
-      @test deviance(theopmodel_laplacei, theopp, param, Pumas.HCubeQuad()) ≈ 281.1606964897779 rtol=1e-6 #regression test
+      @test deviance(theopmodel_laplacei, theopp, param, Pumas.LLQuad()()) ≈ 281.1606964897779 rtol=1e-6 #regression test
     end
   end
 end

@@ -44,14 +44,14 @@ function g(obs)
     obs[:auc] < 300
 end
 param_dists = (θ = Uniform.(m_diffeq.param.params.θ.lower,m_diffeq.param.params.θ.upper),)
-@time uq_windowcost(g,KoopmanQuant(HCubatureJL()),m_diffeq,subject1,param_dists)
-@time uq_windowcost(g,KoopmanQuant(HCubatureJL()),m_diffeq,subject1,param_dists;
+@time expectation(g,KoopmanExpectation(HCubatureJL()),m_diffeq,subject1,param_dists)
+@time expectation(g,KoopmanExpectation(HCubatureJL()),m_diffeq,subject1,param_dists;
                     ireltol=1e-6,iabstol=1e-6,imaxiters=1_0)
-@time uq_windowcost(g,KoopmanQuant(HCubatureJL()),m_diffeq,subject1,param_dists;
+@time expectation(g,KoopmanExpectation(HCubatureJL()),m_diffeq,subject1,param_dists;
                     ireltol=1e-6,iabstol=1e-6,imaxiters=100)
-@time uq_windowcost(g,KoopmanQuant(HCubatureJL()),m_diffeq,subject1,param_dists;
+@time expectation(g,KoopmanExpectation(HCubatureJL()),m_diffeq,subject1,param_dists;
                     ireltol=1e-6,iabstol=1e-6,imaxiters=1000)
 
-@time uq_windowcost(g,MonteCarloQuant(),m_diffeq,subject1,param_dists,imaxiters=10)
-@time uq_windowcost(g,MonteCarloQuant(),m_diffeq,subject1,param_dists,imaxiters=100)
-@time uq_windowcost(g,MonteCarloQuant(),m_diffeq,subject1,param_dists,imaxiters=1000)
+@time expectation(g,MonteCarloExpectation(),m_diffeq,subject1,param_dists,imaxiters=10)
+@time expectation(g,MonteCarloExpectation(),m_diffeq,subject1,param_dists,imaxiters=100)
+@time expectation(g,MonteCarloExpectation(),m_diffeq,subject1,param_dists,imaxiters=1000)

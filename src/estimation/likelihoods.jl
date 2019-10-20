@@ -11,7 +11,10 @@ struct FOCE <: LikelihoodApproximation end
 struct FOCEI <: LikelihoodApproximation end
 struct Laplace <: LikelihoodApproximation end
 struct LaplaceI <: LikelihoodApproximation end
-struct HCubeQuad <: LikelihoodApproximation end
+struct LLQuad{T} <: LikelihoodApproximation
+  quadalg::T
+end
+LLQuad() = LLQuad(HCubatureJL())
 
 zval(d) = 0.0
 zval(d::Distributions.Normal{T}) where {T} = zero(T)
@@ -214,7 +217,7 @@ function _orth_empirical_bayes!(
   m::PumasModel,
   subject::Subject,
   param::NamedTuple,
-  ::Union{FO,FOI,HCubeQuad},
+  ::Union{FO,FOI,LLQuad},
   args...; kwargs...)
 
   fill!(vrandeffsorth, 0)
@@ -473,32 +476,35 @@ function marginal_nll(m::PumasModel,
                       subject::Subject,
                       param::NamedTuple,
                       vrandeffsorth::AbstractVector,
-                      approx::HCubeQuad,
+                      approx::LLQuad,
                       # Since the random effect is scaled to be standard normal we can just hardcode the integration domain
                       low::AbstractVector=fill(-4.0, length(vrandeffsorth)),
                       high::AbstractVector=fill(4.0, length(vrandeffsorth)),
-                      args...; kwargs...)
+                      args...; batch = 0, kwargs...)
 
   randeffstransform = totransform(m.random(param))
-  -log(
-    hcubature(
-      _vrandeffsorth -> exp(
-        -conditional_nll(
-          m,
-          subject,
-          param,
-          TransformVariables.transform(
-            randeffstransform,
-            _vrandeffsorth
-          ),
-          args...;
-          kwargs...
-        ) - _vrandeffsorth'_vrandeffsorth/2 - log(2π)*length(vrandeffsorth)/2
+
+  integrand = _vrandeffsorth -> exp(
+    -conditional_nll(
+      m,
+      subject,
+      param,
+      TransformVariables.transform(
+        randeffstransform,
+        _vrandeffsorth
       ),
-      low,
-      high
-    )[1]
+      args...;
+      kwargs...
+    ) - _vrandeffsorth'_vrandeffsorth/2 - log(2π)*length(vrandeffsorth)/2
   )
+
+  intprob = QuadratureProblem(integrand,low,
+                                 high,
+                                 batch=batch)
+
+  sol = solve(intprob,quant.quadalg,reltol=ireltol,
+              abstol=iabstol,maxiters = imaxiters)
+  -log(sol.u)
 end
 
 # deviance is NONMEM-equivalent marginal negative loglikelihood
@@ -649,7 +655,7 @@ function marginal_nll_gradient!(g::AbstractVector,
                                 subject::Subject,
                                 vparam::AbstractVector,
                                 vrandeffsorth::AbstractVector,
-                                approx::Union{NaivePooled,FO,FOI,HCubeQuad},
+                                approx::Union{NaivePooled,FO,FOI,LLQuad},
                                 trf::TransformVariables.TransformTuple,
                                 args...;
                                 # We explicitly use reltol to compute the right step size for finite difference based gradient
