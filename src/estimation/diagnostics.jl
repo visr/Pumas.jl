@@ -1,6 +1,6 @@
 function StatsBase.residuals(fpm::FittedPumasModel)
   # Return the residuals
-  return [residuals(fpm.model, subject, coef(fpm), vrandeffs, args...; kwargs...) for (subject, vrandeffs) in zip(fpm.data, fpm.vvrandeffs)]
+  return [residuals(fpm.model, subject, coef(fpm), vrandeffsorth, fpm.args...; fpm.kwargs...) for (subject, vrandeffsorth) in zip(fpm.data, fpm.vvrandeffsorth)]
 end
 function StatsBase.residuals(model::PumasModel, subject::Subject, param::NamedTuple, vrandeffs::AbstractArray, args...; kwargs...)
   rtrf = totransform(model.random(param))

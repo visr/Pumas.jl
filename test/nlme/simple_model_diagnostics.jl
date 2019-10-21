@@ -143,7 +143,7 @@ end
                             [-1.38172560 , 1.03215561 ],
                             [ 0.905043866, 0.317563907]], data)
 
-    @test Pumas.Pumas.iwres(mdsl1, dt, param).dv ≈ sub_iwres
+    @test Pumas.iwres(mdsl1, dt, param).dv ≈ sub_iwres
 end
 
 @testset "icwres" for
