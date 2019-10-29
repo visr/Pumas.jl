@@ -248,11 +248,7 @@ function _orth_empirical_bayes!(
     Optim.optimize(
       cost,
       vrandeffsorth,
-      BFGS(
-        # Restrict the step sizes allowed by the line search. Large step sizes can make
-        # the estimation fail.
-        linesearch=Optim.LineSearches.BackTracking(maxstep=1.0),
-        ),
+      NewtonTrustRegion(),
       Optim.Options(
         show_trace=false,
         extended_trace=true,
