@@ -29,6 +29,7 @@ end
 if group == "All" || group == "NLME_ML2"
   @time @safetestset "Maximum-likelihood models 2" begin
     @time @safetestset "Bolus"                                       begin include("bolus.jl")                     end
+    @time @safetestset "VPC"                                         begin include("vpc.jl")                     end
   end
 end
 
