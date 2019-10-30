@@ -16,18 +16,17 @@ function StatsBase.residuals(subject::Subject, dist)
   return map(x->x[1] .- mean.(x[2]), NamedTuple{_keys}(zip(subject.observations, dist)))
 end
 """
-  npde(model, subject, param, randeffs, simulations_count)
+  npde(model, subject, param, simulations_count)
 
 To calculate the Normalised Prediction Distribution Errors (NPDE).
 """
 function npde(m::PumasModel,
               subject::Subject,
               param::NamedTuple,
-              randeffs::NamedTuple,
               nsim::Integer)
 
   _names = keys(subject.observations)
-  sims = [simobs(m, subject, param, randeffs).observed for i in 1:nsim]
+  sims = [simobs(m, subject, param).observed for i in 1:nsim]
 
   return map(NamedTuple{_names}(_names)) do name
            y = subject.observations[name]
@@ -38,7 +37,7 @@ function npde(m::PumasModel,
            y_decorr = Fcov_y.U'\(y .- mean_y)
 
            φ = mean(ysims) do y_l
-             y_decorr_l = Fcov_y\(y_l .- mean_y)
+             y_decorr_l = Fcov_y.U'\(y_l .- mean_y)
              Int.(y_decorr_l .< y_decorr)
            end
 
