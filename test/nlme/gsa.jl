@@ -53,7 +53,7 @@ p = (  θ1 = 1.5,  #Ka
 sobol = gsa(m_diffeq,
             ev2,
             p,
-            DiffEqSensitivity.Sobol(),
+            DiffEqSensitivity.Sobol(N=10000),
             [:auc], (θ1 = 0.1, θ2 = 0.5, θ3 = 10))
 
 @test sobol.first_order[1][1] ≈ 0.0 atol = 1e-2
