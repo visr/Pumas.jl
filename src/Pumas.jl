@@ -63,11 +63,11 @@ export conditional_nll
 export predict, residuals, wresiduals, empirical_bayes
 export ηshrinkage, ϵshrinkage
 export read_pumas, example_data
+export vpc, gsa
 export @model, @nca, @tvcov
 # From StatsBase
 export fit, stderror, vcov, aic, bic, deviance, informationmatrix
 export infer, inspect
-export gsa
 export mean, std, var, coef
 export expectation, KoopmanExpectation, MonteCarloExpectation
 # From LinearAlgebra
