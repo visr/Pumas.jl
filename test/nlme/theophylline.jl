@@ -618,22 +618,6 @@ end
     @test ebe_cov[i].η.Σ.mat[:] ≈ focei_ebes_cov[i,:] atol=1e-3
   end
 
-  Pumas.npde(theopmodel_focei,
-    theopp[1],
-    param,
-    Pumas.TransformVariables.transform(
-      Pumas.totransform(
-        theopmodel_focei.random(param)
-      ),
-      Pumas._orth_empirical_bayes(
-        theopmodel_focei,
-        theopp[1],
-        param,
-        Pumas.FOCEI()
-      )
-    ),
-  1000
-  )
   Pumas.epred(
     theopmodel_focei,
     theopp[1],

@@ -20,6 +20,7 @@ if group == "All" || group == "NLME_ML1"
     @time @safetestset "Poisson"                                     begin include("poisson_model.jl")             end
     @time @safetestset "Information matrix"                          begin include("information.jl")               end
     @time @safetestset "Missing observations"                        begin include("missings.jl")                  end
+    @time @safetestset "Global Sensitivity Analysis"                 begin include("gsa.jl")                       end
   end
 end
 

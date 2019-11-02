@@ -251,11 +251,7 @@ function _orth_empirical_bayes!(
     Optim.optimize(
       cost,
       vrandeffsorth,
-      BFGS(
-        # Restrict the step sizes allowed by the line search. Large step sizes can make
-        # the estimation fail.
-        linesearch=Optim.LineSearches.BackTracking(maxstep=1.0),
-        ),
+      NewtonTrustRegion(),
       Optim.Options(
         show_trace=false,
         extended_trace=true,
@@ -1327,6 +1323,78 @@ function _expected_information(m::PumasModel,
   return dEdθ*V⁻¹*dEdθ' + dVpart
 end
 
+function _expected_information_fd(
+  model::PumasModel,
+  subject::Subject,
+  param::NamedTuple,
+  vrandeffsorth::AbstractVector,
+  ::FO,
+  args...;
+  blockdiag=true,
+  reltol=DEFAULT_ESTIMATION_RELTOL,
+  fdtype=Val{:central}(),
+  fdrelstep=_fdrelstep(model, param, reltol, fdtype),
+  fdabsstep=fdrelstep^2,
+  kwargs...)
+
+  trf = toidentitytransform(model.param)
+  vparam = TransformVariables.inverse(trf, param)
+
+  # Costruct closure for calling _derived as a function
+  # of a random effects vector.
+  __E_and_V = _param -> _E_and_V(
+    model,
+    subject,
+    TransformVariables.transform(trf, _param),
+    vrandeffsorth,
+    FO(),
+    args...; kwargs...)
+
+  E, V = __E_and_V(vparam)
+  dEdθ = zeros(eltype(vparam), length(E), length(vparam))
+  JV = zeros(eltype(vparam), length(E)*length(E), length(vparam))
+
+  ___E = _vparam -> __E_and_V(_vparam)[1]
+  ___V = _vparam -> vec(__E_and_V(_vparam)[2])
+
+  DiffEqDiffTools.finite_difference_jacobian!(
+    dEdθ,
+    ___E,
+    vparam,
+    typeof(fdtype),
+    eltype(vparam),
+    Val{false},
+    relstep=fdrelstep,
+    absstep=fdabsstep
+  )
+  DiffEqDiffTools.finite_difference_jacobian!(
+    JV,
+    ___V,
+    vparam,
+    typeof(fdtype),
+    eltype(vparam),
+    Val{false},
+    relstep=fdrelstep,
+    absstep=fdabsstep
+  )
+
+  V⁻¹ = inv(V)
+  m = size(dEdθ, 1)
+  n = size(dEdθ, 2)
+
+  dVpart = similar(dEdθ, n, n)
+  for l in 1:n
+    dVdθl = reshape(JV[:, l], m, m)
+    for k in 1:n
+      dVdθk = reshape(JV[:, k], m, m)
+      dVpart[l,k] = sum((V⁻¹ * dVdθk) .* (dVdθl * V⁻¹))/2
+    end
+  end
+
+  Apart = dEdθ'*V⁻¹*dEdθ
+  return Apart + dVpart
+end
+
 function StatsBase.informationmatrix(f::FittedPumasModel; expected::Bool=true)
   data          = f.data
   model         = f.model
@@ -1390,23 +1458,36 @@ function Statistics.var(vfpm::Vector{<:FittedPumasModel})
 end
 
 # This is called with dual numbered "param"
-function _E_and_V(m::PumasModel,
+function _E_and_V(model::PumasModel,
                   subject::Subject,
                   param::NamedTuple,
                   vrandeffsorth::AbstractVector,
                   ::FO,
                   args...; kwargs...)
 
-  randeffstransform = totransform(m.random(param))
-  dist = _derived(m, subject, param, TransformVariables.transform(randeffstransform, vrandeffsorth), args...; kwargs...)
-  E = sum(dv->mean.(dv), NamedTuple{keys(subject.observations)}(dist))
-
-  F = _mean_derived_vηorth_jacobian(m, subject, param, vrandeffsorth, args...; kwargs...)
+  randeffstransform = totransform(model.random(param))
+  dist = _derived(
+    model,
+    subject,
+    param,
+    TransformVariables.transform(randeffstransform, vrandeffsorth),
+    args...; kwargs...)
 
   _names = keys(subject.observations)
-  V = sum(_names) do name
-        return Symmetric(F[name]*F[name]' + Diagonal(var.(dist[name])))
-      end
+
+  E = vcat([mean.(dist[_name]) for _name in _names]...)
+
+  F = _mean_derived_vηorth_jacobian(
+    model,
+    subject,
+    param,
+    vrandeffsorth,
+    args...; kwargs...)
+
+  FF = vcat([F[_name] for _name in _names]...)
+  dd = vcat([var.(dist[_name]) for _name in _names]...)
+  V = FF*FF' + Diagonal(dd)
+
   return E, V
 end
 

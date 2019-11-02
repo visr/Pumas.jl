@@ -1,6 +1,7 @@
 using Test
 using Pumas
-
+using Random
+Random.seed!(4)
 data = read_pumas(example_data("sim_data_model1"))
 
 #likelihood tests from NLME.jl
@@ -34,23 +35,23 @@ end
 
 param = init_param(mdsl1)
 
-[Pumas.npde(
-  mdsl1,
-  data[i],
-  param,
-  Pumas.TransformVariables.transform(
-    Pumas.totransform(
-      mdsl1.random(param)
-    ),
-    Pumas._orth_empirical_bayes(
-      mdsl1,
-      data[i],
-      param,
-      Pumas.FOCE()
-    )
-  ),
-  10000
-) for i in 1:10]
+pnpde = [Pumas.npde(mdsl1, data[i], param, 10000) for i in 1:10]
+
+pnpde_ref = [[0.18962882237487352, 1.7201784995140674],
+ [-1.3773631497105263, -0.252570666427693],
+ [0.2976111022334799, 0.6489046638504296],
+ [0.39153746690120006, 1.383211580197489],
+ [0.617962588415399, -1.6901461375274704],
+ [0.8405501419786955, -0.7461116042451951],
+ [0.23939410585994175, 1.696453654440568],
+ [-0.17662876259615526, 0.6610192009497576],
+ [-1.3943895566974136, 0.9928152433591684],
+ [0.9047459346629684, 0.3496518412286771]]
+
+for (_pnpde, _ref) in zip(pnpde, pnpde_ref)
+  @test _pnpde.dv == _ref
+end
+
 [Pumas.epred(
   mdsl1,
   data[i],
@@ -143,7 +144,7 @@ end
                             [-1.38172560 , 1.03215561 ],
                             [ 0.905043866, 0.317563907]], data)
 
-    @test Pumas.Pumas.iwres(mdsl1, dt, param).dv ≈ sub_iwres
+    @test Pumas.iwres(mdsl1, dt, param).dv ≈ sub_iwres
 end
 
 @testset "icwres" for
