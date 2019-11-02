@@ -477,7 +477,7 @@ function marginal_nll(m::PumasModel,
                       low::AbstractVector=fill(-3.0, length(vrandeffsorth)),
                       high::AbstractVector=fill(3.0, length(vrandeffsorth)),
                       args...; batch = 0,
-                      ireltol = 1e-4, iabstol=1e-4, imaxiters = 10_000,
+                      ireltol = 1e-6, iabstol=1e-6, imaxiters = 10_000,
                       kwargs...)
 
   randeffstransform = totransform(m.random(param))
