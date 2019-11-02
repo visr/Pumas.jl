@@ -25,12 +25,17 @@ using Pumas, Test, StatsFuns
         end
 
         @derived begin
-            dv ~ @. Bernoulli(logistic(LOGIT))
+            dv ~ Bernoulli(logistic(LOGIT))
         end
 
     end
 
     param = (θ₁=0.01, θ₂=0.001, Ω=fill(1.0, 1, 1))
+
+    @testset "Converesion of simulation output to DataFrame when dv is scalar" begin
+        sim = simobs(mdsl, data, param)
+        @test DataFrame(sim, include_events=false) isa DataFrame
+    end
 
     @testset "testing with $approx approximation" for
         approx in (Pumas.FO(), Pumas.FOCE(), Pumas.FOCEI(), Pumas.Laplace(), Pumas.LaplaceI())

@@ -288,7 +288,7 @@ Base.@propagate_inbounds function subject_at_ithdose(nca::NCASubject, i::Integer
   end
 end
 
-urine2plasma(pop::NCAPopulation) = map(urine2plasma, pop.subjects)
+urine2plasma(pop::NCAPopulation) = map(urine2plasma, pop)
 function urine2plasma(subj::NCASubject)
   if subj.rate === nothing
     return subj
