@@ -2,14 +2,17 @@ using Pumas.NCA, Test, CSV
 using Pumas
 
 file = Pumas.example_data("nca_test_data/dapa_IV")
-data = CSV.read(file)
+data = copy(CSV.read(file))
 
 timeu = u"hr"
 concu = u"mg/L"
 amtu  = u"mg"
 data[!,:route] .= "iv"
+didxs = findall(!iszero, data.AMT_IV)
+data[rand(didxs), :AMT_IV] = 10
 ncapop = @test_nowarn read_nca(data, id=:ID, time=:TIME, conc=:CObs, amt=:AMT_IV, route=:route,
                                     llq=0concu, timeu=timeu, concu=concu, amtu=amtu)
+@test ustrip.(NCA.doseamt(ncapop)[!, end]) == data[didxs, :AMT_IV]
 @test_nowarn NCA.auc(ncapop, method=:linuplogdown)
 @test all(ismissing, NCA.bioav(ncapop, ithdose=1)[!, 2])
 @test_logs (:warn, "No dosage information has passed. If the dataset has dosage information, you can pass the column names by `amt=:AMT, route=:route`.") NCA.auc(read_nca(data, id=:ID, time=:TIME, conc=:CObs));
