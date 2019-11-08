@@ -2,7 +2,7 @@ using Pumas.NCA, Test, CSV
 using Pumas
 
 multiple_doses_file = Pumas.example_data("nca_test_data/dapa_IV_ORAL")
-mdata = CSV.read(multiple_doses_file)
+mdata = copy(CSV.read(multiple_doses_file))
 msol = CSV.read(Pumas.example_data("nca_test_data/dapa_IV_ORAL_sol"))
 
 timeu = u"hr"
@@ -10,8 +10,12 @@ concu = u"mg/L"
 amtu  = u"mg"
 mdata[!,:route] .= map(f -> f=="ORAL" ? "ev" : "iv", mdata.FORMULATION)
 mdata[!,:ii] .= 24
+didxs = findall(x->!ismissing(x) && !iszero(x), mdata.AMT)
+mdata[rand(didxs), :AMT] = 10
+
 mncapop = @test_nowarn read_nca(mdata, id=:ID, time=:TIME, conc=:COBS, amt=:AMT, route=:route, occasion=:OCC,
                                      timeu=timeu, concu=concu, amtu=amtu)
+@test ustrip.(NCA.doseamt(mncapop)[!, end]) == mdata[didxs, :AMT]
 
 @test_throws ArgumentError NCA.interpextrapconc(mncapop[1], 22timeu, method=:linear)
 
