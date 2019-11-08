@@ -276,6 +276,7 @@ function empirical_bayes_dist(m::PumasModel,
 
   parset = m.random(param)
   trf = totransform(parset)
+
   dv_∂²l∂η² = ∂²l∂η²(m, subject, param, vrandeffsorth, approx, args...; kwargs...)
   # 3 is W, should we make is a named tuple with l, g, W?
   V = inv(sum(_dv_∂²l∂η²[3] for _dv_∂²l∂η² in dv_∂²l∂η²) + I)

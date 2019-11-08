@@ -21,13 +21,13 @@ function _build_analytical_problem(m::PumasModel, subject::Subject, tspan, col,
                                    args...; kwargs...)
   f = m.prob isa ExplicitModel ? m.prob : m.prob.pkprob
   u0 = pk_init(f)
-
+  numtypecol = numtype(col)
   # we don't want to promote units
-  if numtype(col) <: Unitful.Quantity || numtype(u0) <: Unitful.Quantity || numtype(tspan) <: Unitful.Quantity
+  if numtypecol <: Unitful.Quantity || numtype(u0) <: Unitful.Quantity || numtype(tspan) <: Unitful.Quantity
     Tu0 = map(float, u0)
     Ttspan = map(float, tspan)
   else
-    T = promote_type(numtype(col), numtype(u0), numtype(tspan))
+    T = promote_type(numtypecol, numtype(u0), numtype(tspan))
     Tu0 = convert.(T,u0)
     Ttspan = map(float, tspan)
   end
