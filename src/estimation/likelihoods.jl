@@ -474,10 +474,10 @@ function marginal_nll(m::PumasModel,
                       vrandeffsorth::AbstractVector,
                       approx::LLQuad,
                       # Since the random effect is scaled to be standard normal we can just hardcode the integration domain
-                      low::AbstractVector=fill(-3.0, length(vrandeffsorth)),
-                      high::AbstractVector=fill(3.0, length(vrandeffsorth)),
+                      low::AbstractVector=fill(-4.0, length(vrandeffsorth)),
+                      high::AbstractVector=fill(4.0, length(vrandeffsorth)),
                       args...; batch = 0,
-                      ireltol = 1e-8, iabstol=1e-8, imaxiters = 10_000,
+                      ireltol = 1e-12, iabstol=1e-12, imaxiters = 100_000,
                       kwargs...)
 
   randeffstransform = totransform(m.random(param))
