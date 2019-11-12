@@ -318,8 +318,14 @@ function cache_ncasubj!(subj1::NCASubject, subj2::NCASubject)
   return nothing
 end
 
-setretcode!(subj::NCASubject, retcode) = subj.retcode = subj.retcode == :Success ? retcode :
-                                                          occursin(String(subj.retcode), String(retcode)) ? subj.retcode :
-                                                          Symbol(subj.retcode, :_, retcode)
+function setretcode!(subj::NCASubject, retcode)
+  ismultidose = subj.retcode isa AbstractArray
+  subjretcode = ismultidose ? subj.retcode[1] : subj.retcode
+  ret = subjretcode == :Success ? retcode :
+    occursin(String(subjretcode), String(retcode)) ? subjretcode :
+    Symbol(subjretcode, :_, retcode)
+  ismultidose ? (subj.retcode[1] = ret) : (subj.retcode = ret)
+  return nothing
+end
 
 _first(x) = x === missing ? x : first(x)
