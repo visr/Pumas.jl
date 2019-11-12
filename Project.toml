@@ -45,7 +45,7 @@ Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
 [compat]
 DataFrames = "0.19"
 DiffEqBase = "6.3.4"
-DiffEqDiffTools = "1"
+DiffEqDiffTools = "~1.0, ~1.1, ~1.2, ~1.3"
 DiffEqSensitivity = "4.0.1"
 ForwardDiff = "0.10.4"
 LabelledArrays = "0.7.1"
