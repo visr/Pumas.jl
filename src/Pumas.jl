@@ -36,7 +36,6 @@ include("estimation/transforms.jl")
 include("estimation/likelihoods.jl")
 include("estimation/bayes.jl")
 include("estimation/diagnostics.jl")
-include("estimation/vpc.jl")
 include("estimation/gsa.jl")
 include("estimation/show.jl")
 
@@ -68,7 +67,6 @@ export @model, @nca, @tvcov
 # From StatsBase
 export fit, stderror, vcov, aic, bic, deviance, informationmatrix
 export infer, inspect
-export vpc, vpc_obs
 export gsa
 export mean, std, var, coef
 export expectation, KoopmanExpectation, MonteCarloExpectation

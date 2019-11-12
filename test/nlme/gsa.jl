@@ -65,34 +65,51 @@ sobol = gsa(m_diffeq,
 sobol_subj = sobol = gsa(m_diffeq,
             ev2[1],
             p,
-            DiffEqSensitivity.Sobol(),
+            DiffEqSensitivity.Sobol(nboot = 2),
             [:auc], (θ1 = 0.1, θ2 = 0.5, θ3 = 10))
-@test sprint((io, t) -> show(io, MIME"text/plain"(), t), sobol_subj) ==
+@test sprint((io, t) -> show(io, MIME"text/plain"(), t), sobol_subj) == 
 """
 First Order Indices
 
 Derived Variable: auc
 
-Parameter first order indices 
+Parameter first order indices min c.i. max c.i.
 
-θ1          0.0
+θ1          $(sobol_subj.first_order[1][1])          $(sobol_subj.first_order_conf_int[1][1][1])          $(sobol_subj.first_order_conf_int[2][1][1])
 
-θ2          $(sobol_subj.first_order[1][2])
+θ2          $(sobol_subj.first_order[1][2])          $(sobol_subj.first_order_conf_int[1][1][2])          $(sobol_subj.first_order_conf_int[2][1][2])
 
-θ3          $(sobol_subj.first_order[1][3])
+θ3          $(sobol_subj.first_order[1][3])          $(sobol_subj.first_order_conf_int[1][1][3])          $(sobol_subj.first_order_conf_int[2][1][3])
 
 Total Order Indices
 
 Derived Variable: auc
 
-Parameter total order indices 
+Parameter total order indices min c.i. max c.i.
 
-θ1          0.0
+θ1          $(sobol_subj.total_order[1][1])          $(sobol_subj.total_order_conf_int[1][1][1])          $(sobol_subj.total_order_conf_int[2][1][1])
 
-θ2          $(sobol_subj.total_order[1][2])
+θ2          $(sobol_subj.total_order[1][2])          $(sobol_subj.total_order_conf_int[1][1][2])          $(sobol_subj.total_order_conf_int[2][1][2])
 
-θ3          $(sobol_subj.total_order[1][3])
+θ3          $(sobol_subj.total_order[1][3])          $(sobol_subj.total_order_conf_int[1][1][3])          $(sobol_subj.total_order_conf_int[2][1][3])
 
 """
 
+morris = gsa(m_diffeq,
+                   ev2,
+                   p,
+                   DiffEqSensitivity.Morris(len_trajectory = 500,num_trajectory=1000),
+                   [:auc],(θ1 = 0.1, θ2 = 0.5, θ3 = 10))
+@test sprint((io, t) -> show(io, MIME"text/plain"(), t), morris) ==
+"""Derived Variable: auc
+
+Parameter      μ      variance
+
+θ1          $(morris.μ[1][1]) $(morris.variances[1][1])
+
+θ2          $(morris.μ[1][2]) $(morris.variances[1][2])
+
+θ3          $(morris.μ[1][3]) $(morris.variances[1][3])
+
+"""
 end
