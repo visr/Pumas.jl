@@ -3,7 +3,7 @@ module Pumas
 using DiffEqDiffTools, Reexport, StatsBase,
       StaticArrays, Distributed, LabelledArrays, GLM,
       TreeViews, CSV, ForwardDiff, DiffResults, Optim, PDMats,
-      Missings, RecipesBase, RecursiveArrayTools, HCubature,
+      Missings, RecipesBase, RecursiveArrayTools, Quadrature,
       Statistics, DiffEqSensitivity
 using LinearAlgebra
 using AdvancedHMC: DiagEuclideanMetric, Hamiltonian, NUTS, Leapfrog, find_good_eps, StanHMCAdaptor, Preconditioner, NesterovDualAveraging
@@ -47,6 +47,8 @@ include("simulate_methods/utils.jl")
 include("simulate_methods/diffeqs.jl")
 include("simulate_methods/analytical.jl")
 
+include("uq/expectation.jl")
+
 include("plotting/plotting.jl")
 
 @reexport using .NCA
@@ -67,6 +69,7 @@ export fit, stderror, vcov, aic, bic, deviance, informationmatrix
 export infer, inspect
 export gsa
 export mean, std, var, coef
+export expectation, KoopmanExpectation, MonteCarloExpectation
 # From LinearAlgebra
 export diagm, Diagonal, I
 
