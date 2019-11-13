@@ -223,7 +223,7 @@ The meaning of each of the list elements is:
   return conc, time, end_time, volume
 end
 
-normalizedose(x::Missing, d) = missing
+normalizedose(x::Missing, d::NCADose) = missing
 normalizedose(x, d::Nothing) = missing
 normalizedose(x::Number, d::NCADose) = x/d.amt
 normalizedose(x::AbstractArray, d::AbstractVector{<:NCADose}) = normalizedose.(x, d)
