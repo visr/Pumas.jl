@@ -12,7 +12,6 @@ function _analytical_solve(m::M, t, t₀, amounts, doses, p, rates) where M<:Exp
   # Instead we write:
   Dp = Diagonal(expm1.(Λ * (t - t₀)) ./ Λ)
   Dh = Dp .* Λ + I
-
   amtₜ = 𝕍*(Dp*(𝕍⁻¹*rates) + Dh*(𝕍⁻¹*amt₀))
 
   return SLVector(NamedTuple{varnames(M)}(amtₜ))
@@ -86,9 +85,9 @@ pk_init(::OneCompartmentParallelModel) = SLVector(Depot1=0.0,Depot2=0.0,Central=
 struct TwoCompartmentModel <: ExplicitModel end
 (m::TwoCompartmentModel)(args...) = _analytical_solve(m, args...)
 @inline function LinearAlgebra.eigen(::TwoCompartmentModel, p)
-    e = p.CL/p.V₁
-    q = p.Q/p.V₁
-    r = p.Q/p.V₂
+    e = p.CL/p.Vc
+    q = p.Q/p.Vc
+    r = p.Q/p.Vp
 
     K = e + q + r
     S = sqrt(K^2-4*e*r)
@@ -102,29 +101,38 @@ struct TwoCompartmentModel <: ExplicitModel end
     iSV = inv(SV)
     SVi = sqrt((e+q)^2 + 2*(-e+q)*r+r^2)
     𝕍⁻¹ = @SMatrix([-iSV*q  iSV*(-KV + SVi)/2;
-                     iSV    iSV*( KV + SVi)/2])
+                     iSV*q    iSV*( KV + SVi)/2])
     return Λ, 𝕍, 𝕍⁻¹
 end
-varnames(::Type{TwoCompartmentModel}) = (:Central, :Peri)
-pk_init(::TwoCompartmentModel) = SLVector(Central=0.0, Peri=0.0)
+varnames(::Type{TwoCompartmentModel}) = (:Central, :Peripheral)
+pk_init(::TwoCompartmentModel) = SLVector(Central=0.0, Peripheral=0.0)
 
 struct TwoCompartmentFirstAbsorpModel <: ExplicitModel end
 (m::TwoCompartmentFirstAbsorpModel)(args...) = _analytical_solve(m, args...)
 @inline function LinearAlgebra.eigen(::TwoCompartmentFirstAbsorpModel, p)
-    k = p.Ka
-    e = p.CL/p.V₁
-    q = p.Q/p.V₁
-    r = p.Q/p.V₂
+  k = p.Ka
+  e = p.CL/p.Vc
+  q = p.Q/p.Vc
+  r = p.Q/p.Vp
 
-    eqr = e + q + r
-    d = sqrt(eqr^2-4*e*r)
-    Λ = @SVector([-k, (-eqr-d)/2, (-eqr+d)/2])
-    S = sqrt((e+q)^2+2*(-e+q)*r+r^2)
-    𝕍 = @SMatrix([(-k*(e-k+q)+(e-k)*r)/(k*q)  0            0;
-                  (-k+r)/q                    -(e+q-r-S)/(2*q) (-e-q+r+S)/(2*q);
-                  1                           1            1])
-    𝕍⁻¹ = inv(𝕍)
-    return Λ, 𝕍, 𝕍⁻¹
+  K = e + q + r
+  S = sqrt(K^2-4*e*r)
+  Λ = @SVector([-k, (-K-S)/2, (-K+S)/2])
+
+  KV = e + q - r
+  SV = sqrt(e^2 + 2*e*(q-r) + (q+r)^2)
+  𝕍 = @SMatrix([(k^2-k*K+e*r)/(k*q)  0                 0;
+                  (-k+r)/q               -(KV + SV)/(2*q)   (-KV + SV)/(2*q);
+                  1                       1                1])
+
+  v1i = inv(𝕍[1,1])
+  iSV = inv(SV)
+  SVi = sqrt((e+q)^2 + 2*(-e+q)*r+r^2)
+  𝕍⁻¹ = @SMatrix([v1i                     0       0;
+                  -iSV*(2*k-K+SVi)*v1i/2   -iSV*q  iSV*(-KV + SVi)/2;
+                  -iSV*(-2*k+K+SVi)*v1i/2   iSV*q  iSV*( KV + SVi)/2])
+
+  return Λ, 𝕍, 𝕍⁻¹
 end
-varnames(::Type{TwoCompartmentFirstAbsorpModel}) = (:Depot, :Central, :Peri)
-pk_init(::TwoCompartmentFirstAbsorpModel) = SLVector(Depot=0.0, Central=0.0, Peri=0.0)
+varnames(::Type{TwoCompartmentFirstAbsorpModel}) = (:Depot, :Central, :Peripheral)
+pk_init(::TwoCompartmentFirstAbsorpModel) = SLVector(Depot=0.0, Central=0.0, Peripheral=0.0)
