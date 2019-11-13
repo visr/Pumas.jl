@@ -170,6 +170,7 @@ for i in 1:24
   i == 1 && @test_nowarn ncareport
   i == 1 && @test_skip display(NCA.to_markdown(ncareport))
   i == 1 && @test_nowarn NCA.to_dataframe(ncareport)
+  i == 1 && @test normalizedose(missing, nca) === missing
 end
 
 @test_nowarn NCA.c0(NCASubject([0.3, 0.2], [0.1, 0.2], dose=NCADose(0, 0.1, nothing, NCA.IVBolus)))
