@@ -1351,29 +1351,24 @@ function _expected_information_fd(
     args...; kwargs...)
 
   E, V = __E_and_V(vparam)
-  dEdθ = zeros(eltype(vparam), length(E), length(vparam))
-  JV = zeros(eltype(vparam), length(E)*length(E), length(vparam))
 
   ___E = _vparam -> __E_and_V(_vparam)[1]
   ___V = _vparam -> vec(__E_and_V(_vparam)[2])
 
-  DiffEqDiffTools.finite_difference_jacobian!(
-    dEdθ,
+  dEdθ = DiffEqDiffTools.finite_difference_jacobian(
     ___E,
     vparam,
     typeof(fdtype),
     eltype(vparam),
-    Val{false},
     relstep=fdrelstep,
     absstep=fdabsstep
   )
-  DiffEqDiffTools.finite_difference_jacobian!(
+  JV = DiffEqDiffTools.finite_difference_jacobian(
     JV,
     ___V,
     vparam,
     typeof(fdtype),
     eltype(vparam),
-    Val{false},
     relstep=fdrelstep,
     absstep=fdabsstep
   )
