@@ -365,6 +365,7 @@ end
 
   # Test that the types work on both stiff and non-stiff solver methods
   o = fit(theopmodel_solver_fo, theopp, param, Pumas.FO(), alg=Tsit5())
+  o = fit(theopmodel_solver_fo, theopp, param, Pumas.FO(), alg=Rosenbrock23(autodiff=false))
   o = fit(theopmodel_solver_fo, theopp, param, Pumas.FO(), alg=Rosenbrock23())
 end
 
