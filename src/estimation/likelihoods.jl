@@ -1223,6 +1223,7 @@ function _observed_information(f::FittedPumasModel,
 
   # Initialize arrays
   H = zeros(eltype(vparam), length(vparam), length(vparam))
+  _H = zeros(eltype(vparam), length(vparam), length(vparam))
   if Score
     S = copy(H)
     g = similar(vparam, length(vparam))
@@ -1235,7 +1236,7 @@ function _observed_information(f::FittedPumasModel,
     subject = f.data[i]
 
     # Compute Hessian contribution and update Hessian
-    H .+= DiffEqDiffTools.finite_difference_jacobian(vparam,
+    DiffEqDiffTools.finite_difference_jacobian!(_H,vparam,
                                                      Val{:central};
                                                      relstep=fdrelstep_hessian,
                                                      absstep=fdrelstep_hessian^2) do _j, _vparam
@@ -1257,6 +1258,8 @@ function _observed_information(f::FittedPumasModel,
         kwargs...)
       return nothing
     end
+
+    H .+= _H
 
     if Score
       # Compute score contribution
