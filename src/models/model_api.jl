@@ -170,7 +170,7 @@ to be repeated in the other API functions
                           # Super messy and should get cleaned.
                           reltol=DEFAULT_ESTIMATION_RELTOL,
                           abstol=DEFAULT_ESTIMATION_ABSTOL,
-                          alg = AutoVern7(Rodas5()),
+                          alg = AutoVern7(Rodas5(autodiff=false)),
                           # Estimation only uses subject.time for the
                           # observation time series
                           obstimes = subject.time,

@@ -6,7 +6,7 @@ FD_gradient = DiffEqDiffTools.finite_difference_gradient
 FD_jacobian = DiffEqDiffTools.finite_difference_jacobian
 FD_hessian = function (f, x)
     grad_fun = y -> FD_gradient(f, y)
-    FD_jacobian(grad_fun, x, Val{:central}, eltype(x), Val{false})
+    FD_jacobian(grad_fun, x, Val{:central}, eltype(x))
 end
 
 @testset "Derivatives w.r.t regular parameters" begin
