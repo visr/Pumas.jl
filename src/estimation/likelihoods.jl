@@ -1364,7 +1364,6 @@ function _expected_information_fd(
     absstep=fdabsstep
   )
   JV = DiffEqDiffTools.finite_difference_jacobian(
-    JV,
     ___V,
     vparam,
     typeof(fdtype),
