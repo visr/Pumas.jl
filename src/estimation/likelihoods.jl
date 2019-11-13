@@ -1235,29 +1235,31 @@ function _observed_information(f::FittedPumasModel,
   for i in eachindex(f.data)
     subject = f.data[i]
 
-    # Compute Hessian contribution and update Hessian
-    DiffEqDiffTools.finite_difference_jacobian!(_H,vparam,
-                                                     Val{:central};
-                                                     relstep=fdrelstep_hessian,
-                                                     absstep=fdrelstep_hessian^2) do _j, _vparam
+    _f = function (_j, _vparam)
       _param = TransformVariables.transform(trf, _vparam)
       vrandeffsorth = _orth_empirical_bayes(f.model, subject, _param, f.approx, args...; kwargs...)
       marginal_nll_gradient!(
-        _j,
-        f.model,
-        subject,
-        _vparam,
-        vrandeffsorth,
-        f.approx,
-        trf,
-        args...;
-        reltol=reltol,
-        fdtype=Val{:central}(),
-        fdrelstep=fdrelstep_hessian,
-        fdabsstep=fdrelstep_hessian^2,
-        kwargs...)
+      _j,
+      f.model,
+      subject,
+      _vparam,
+      vrandeffsorth,
+      f.approx,
+      trf,
+      args...;
+      reltol=reltol,
+      fdtype=Val{:central}(),
+      fdrelstep=fdrelstep_hessian,
+      fdabsstep=fdrelstep_hessian^2,
+      kwargs...)
       return nothing
     end
+
+    # Compute Hessian contribution and update Hessian
+    DiffEqDiffTools.finite_difference_jacobian!(_H,_f,vparam,
+                                                     Val{:central};
+                                                     relstep=fdrelstep_hessian,
+                                                     absstep=fdrelstep_hessian^2)
 
     H .+= _H
 
