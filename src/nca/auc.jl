@@ -427,6 +427,7 @@ function lambdaz(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT
 end
 
 function cachelambdaz!(subj::NCASubject, lambdaz=missing, points=missing, firstpoint=missing, lastpoint=missing, r2=missing, maxadjr2=missing, intercept=missing)
+  lambdaz === missing && return nothing
   if subj.lambdaz isa AbstractArray
     subj.lambdaz[1] = lambdaz
     subj.points[1] = points

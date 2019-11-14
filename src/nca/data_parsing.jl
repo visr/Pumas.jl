@@ -115,21 +115,20 @@ function ___read_nca(df; id=:id, time=:time, conc=:conc, occasion=:occasion,
     _hiid = findfirst(x->x != id, @view ids[lo:end])
     lo = hiid = _hiid === nothing ? length(ids) : _hiid + lo - 2
     idx = loid:hiid
-    # the time array for the i-th subject
-    subjtime = @view(times[idx])
     if hasdose
       dose_idx = findall(x->x !== missing && x > zero(x), @view amts[idx])
       length(dose_idx) > 1 && occasion === nothing && error("`occasion` must be provided for multiple dosing data")
+      dose_idx = idx[dose_idx] # translate to the global index
       # We want to use time instead of an integer index here, because later we
       # need to remove BLQ and missing data, so that an index number will no
       # longer be valid.
       if length(dose_idx) == 1
         dose_idx = dose_idx[1]
-        dose_time = subjtime[dose_idx[1]]
+        dose_time = times[dose_idx]
       else
         dose_time = similar(times, Base.nonmissingtype(eltype(times)), length(dose_idx))
         for (n,i) in enumerate(dose_idx)
-          dose_time[n] = subjtime[i]
+          dose_time[n] = times[i]
         end
       end
       route′ = map(dose_idx) do i

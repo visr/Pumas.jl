@@ -494,7 +494,7 @@ end
     @series begin
       seriestype --> :path
       istwoplots && (subplot --> 1)
-      _title = hastitle ? plotattributes[:title][1] : "Linear view"
+      _title = hastitle ? plotattributes[:title][1] : "Linear scale"
       title := _title
       vars
     end
@@ -504,7 +504,7 @@ end
       yscale --> :log10
       seriestype --> :path
       istwoplots && (subplot --> 2)
-      _title = hastitle ? plotattributes[:title][2] : "Semilogrithmic view"
+      _title = hastitle ? plotattributes[:title][2] : "Semilogarithmic scale"
       title := _title
       vars
     end
@@ -533,7 +533,7 @@ end
     @series begin
       seriestype --> :path
       istwoplots && (subplot --> 1)
-      _title = hastitle ? plotattributes[:title][1] : "Linear view"
+      _title = hastitle ? plotattributes[:title][1] : "Linear scale"
       title := _title
       (timearr, concarr)
     end
@@ -545,7 +545,7 @@ end
       yscale --> :log10
       seriestype --> :path
       istwoplots && (subplot --> 2)
-      _title = hastitle ? plotattributes[:title][2] : "Semilogrithmic view"
+      _title = hastitle ? plotattributes[:title][2] : "Semilogarithmic scale"
       title := _title
       (timearr, concarr)
     end
