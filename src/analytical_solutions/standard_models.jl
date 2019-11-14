@@ -1,6 +1,8 @@
 export ImmediateAbsorptionModel, OneCompartmentModel, OneCompartmentParallelModel
 
 abstract type ExplicitModel end
+DiffEqBase.has_syms(x::ExplicitModel) = true
+Base.getproperty(x::ExplicitModel, symbol::Symbol) = symbol == :syms ? Pumas.varnames(typeof(x)) : getfield(x, symbol)
 
 struct ImmediateAbsorptionModel <: ExplicitModel end
 function (::ImmediateAbsorptionModel)(t,t0,C0,dose,p,rate)
