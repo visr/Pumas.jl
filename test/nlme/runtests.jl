@@ -25,8 +25,6 @@ if group == "All" || group == "NLME_ML1"
 end
 
 if group == "All" || group == "NLME_ML2"
-  using DiffEqBase
-  DiffEqBase.fastpow(x::Real, y::Real) = x^y
   @time @safetestset "Maximum-likelihood models 2" begin
     @time @safetestset "Bolus"                                       begin include("bolus.jl")                     end
   end
