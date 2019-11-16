@@ -136,3 +136,51 @@ struct TwoCompartmentFirstAbsorpModel <: ExplicitModel end
 end
 varnames(::Type{TwoCompartmentFirstAbsorpModel}) = (:Depot, :Central, :Peripheral)
 pk_init(::TwoCompartmentFirstAbsorpModel) = SLVector(Depot=0.0, Central=0.0, Peripheral=0.0)
+
+
+# use Vc and Vm
+struct Metabolite11 <: ExplicitModel end # 011?
+(m::Metabolite11)(args...) = _analytical_solve(m, args...)
+@inline function LinearAlgebra.eigen(::Metabolite11, p)
+  a = p.CL1/p.V1
+  b = p.Q11/p.V1
+  c = p.Q11/p.Vp1
+  d = p.Q12/p.V1
+  e = p.CL2/p.V2
+  f = p.Q21/p.V2
+  h = p.Q21/p.Vp2
+
+  G = a + b
+  K̅ = a + b + c
+  ϵ = e + f
+  tf = 2*f
+  K̲ = e + f + h
+  S = sqrt(K̅^2 - 4*a*c)
+  W = sqrt(K̲^2 - 4*e*h)
+  Λ = @SVector([(-K̅ - S)/2, (-K̅ + S)/2,  (-K̲ - W)/2,  (-K̲ + W)/2])
+
+  R = sqrt(G^2 + (c - 2*(a + b))*c)
+
+  v11 = (-Λ[1]*2 - 2*ϵ)*(-Λ[1]*2 - 2*h)/(4*d*f)-h/d
+  v21 = -(-a-b-Λ[1])*(-Λ[1]-ϵ)*(-Λ[1]*2-2*h)/(2*c*d*f)-(2*(a+b+Λ[1]))*h/(2*c*d)
+  v31 = (Λ[1] + h)/f
+
+  v12 = (-Λ[2]*2 - 2*ϵ)*(-Λ[2]*2 - 2*h)/(4*d*f)-h/d
+  v22 = -(-a-b-Λ[2])*(-Λ[2]-ϵ)*(-Λ[2]*2-2*h)/(2*c*d*f)-(2*(a+b+Λ[2]))*h/(2*c*d)
+  v32 = (Λ[2] + h)/f
+
+  v33 = -(ϵ - h - W)/tf
+  v34 = -(ϵ - h + W)/tf
+
+  𝕍 = @SMatrix([v11  v12  0   0  ;
+                v21  v22  0   0  ;
+                v31  v32  v33 v34;
+                1    1    1   1])
+
+  𝕍⁻¹ = inv(𝕍)
+
+  return Λ, 𝕍, 𝕍⁻¹
+end
+varnames(::Type{Metabolite11}) = (:Central, :CPeripheral, :Metabolite, :MPeripheral)
+pk_init(::Metabolite11) = SLVector(Central=0.0, CPeripheral=0.0, Metabolite=0.0, MPeripheral=0.0
+)
