@@ -11,7 +11,10 @@ struct FOCE <: LikelihoodApproximation end
 struct FOCEI <: LikelihoodApproximation end
 struct Laplace <: LikelihoodApproximation end
 struct LaplaceI <: LikelihoodApproximation end
-struct HCubeQuad <: LikelihoodApproximation end
+struct LLQuad{T} <: LikelihoodApproximation
+  quadalg::T
+end
+LLQuad() = LLQuad(HCubatureJL())
 
 zval(d) = 0.0
 zval(d::Distributions.Normal{T}) where {T} = zero(T)
@@ -214,7 +217,7 @@ function _orth_empirical_bayes!(
   m::PumasModel,
   subject::Subject,
   param::NamedTuple,
-  ::Union{FO,FOI,HCubeQuad},
+  ::Union{FO,FOI,LLQuad},
   args...; kwargs...)
 
   fill!(vrandeffsorth, 0)
@@ -470,32 +473,37 @@ function marginal_nll(m::PumasModel,
                       subject::Subject,
                       param::NamedTuple,
                       vrandeffsorth::AbstractVector,
-                      approx::HCubeQuad,
+                      approx::LLQuad,
                       # Since the random effect is scaled to be standard normal we can just hardcode the integration domain
                       low::AbstractVector=fill(-4.0, length(vrandeffsorth)),
                       high::AbstractVector=fill(4.0, length(vrandeffsorth)),
-                      args...; kwargs...)
+                      args...; batch = 0,
+                      ireltol = 1e-12, iabstol=1e-12, imaxiters = 100_000,
+                      kwargs...)
 
   randeffstransform = totransform(m.random(param))
-  -log(
-    hcubature(
-      _vrandeffsorth -> exp(
-        -conditional_nll(
-          m,
-          subject,
-          param,
-          TransformVariables.transform(
-            randeffstransform,
-            _vrandeffsorth
-          ),
-          args...;
-          kwargs...
-        ) - _vrandeffsorth'_vrandeffsorth/2 - log(2π)*length(vrandeffsorth)/2
+
+  integrand = (_vrandeffsorth,nothing) -> exp(
+    -conditional_nll(
+      m,
+      subject,
+      param,
+      TransformVariables.transform(
+        randeffstransform,
+        _vrandeffsorth
       ),
-      low,
-      high
-    )[1]
+      args...;
+      kwargs...
+    ) - _vrandeffsorth'_vrandeffsorth/2 - log(2π)*length(vrandeffsorth)/2
   )
+
+  intprob = QuadratureProblem(integrand,low,
+                                 high,
+                                 batch=batch)
+
+  sol = solve(intprob,approx.quadalg,reltol=ireltol,
+              abstol=iabstol,maxiters = imaxiters)
+  -log(sol.u)
 end
 
 # deviance is NONMEM-equivalent marginal negative loglikelihood
@@ -646,7 +654,7 @@ function marginal_nll_gradient!(g::AbstractVector,
                                 subject::Subject,
                                 vparam::AbstractVector,
                                 vrandeffsorth::AbstractVector,
-                                approx::Union{NaivePooled,FO,FOI,HCubeQuad},
+                                approx::Union{NaivePooled,FO,FOI,LLQuad},
                                 trf::TransformVariables.TransformTuple,
                                 args...;
                                 # We explicitly use reltol to compute the right step size for finite difference based gradient
@@ -1216,6 +1224,7 @@ function _observed_information(f::FittedPumasModel,
 
   # Initialize arrays
   H = zeros(eltype(vparam), length(vparam), length(vparam))
+  _H = zeros(eltype(vparam), length(vparam), length(vparam))
   if Score
     S = copy(H)
     g = similar(vparam, length(vparam))
@@ -1227,29 +1236,33 @@ function _observed_information(f::FittedPumasModel,
   for i in eachindex(f.data)
     subject = f.data[i]
 
-    # Compute Hessian contribution and update Hessian
-    H .+= DiffEqDiffTools.finite_difference_jacobian(vparam,
-                                                     Val{:central};
-                                                     relstep=fdrelstep_hessian,
-                                                     absstep=fdrelstep_hessian^2) do _j, _vparam
+    _f = function (_j, _vparam)
       _param = TransformVariables.transform(trf, _vparam)
       vrandeffsorth = _orth_empirical_bayes(f.model, subject, _param, f.approx, args...; kwargs...)
       marginal_nll_gradient!(
-        _j,
-        f.model,
-        subject,
-        _vparam,
-        vrandeffsorth,
-        f.approx,
-        trf,
-        args...;
-        reltol=reltol,
-        fdtype=Val{:central}(),
-        fdrelstep=fdrelstep_hessian,
-        fdabsstep=fdrelstep_hessian^2,
-        kwargs...)
+      _j,
+      f.model,
+      subject,
+      _vparam,
+      vrandeffsorth,
+      f.approx,
+      trf,
+      args...;
+      reltol=reltol,
+      fdtype=Val{:central}(),
+      fdrelstep=fdrelstep_hessian,
+      fdabsstep=fdrelstep_hessian^2,
+      kwargs...)
       return nothing
     end
+
+    # Compute Hessian contribution and update Hessian
+    DiffEqDiffTools.finite_difference_jacobian!(_H,_f,vparam,
+                                                     Val{:central};
+                                                     relstep=fdrelstep_hessian,
+                                                     absstep=fdrelstep_hessian^2)
+
+    H .+= _H
 
     if Score
       # Compute score contribution
@@ -1344,29 +1357,23 @@ function _expected_information_fd(
     args...; kwargs...)
 
   E, V = __E_and_V(vparam)
-  dEdθ = zeros(eltype(vparam), length(E), length(vparam))
-  JV = zeros(eltype(vparam), length(E)*length(E), length(vparam))
 
   ___E = _vparam -> __E_and_V(_vparam)[1]
   ___V = _vparam -> vec(__E_and_V(_vparam)[2])
 
-  DiffEqDiffTools.finite_difference_jacobian!(
-    dEdθ,
+  dEdθ = DiffEqDiffTools.finite_difference_jacobian(
     ___E,
     vparam,
     typeof(fdtype),
     eltype(vparam),
-    Val{false},
     relstep=fdrelstep,
     absstep=fdabsstep
   )
-  DiffEqDiffTools.finite_difference_jacobian!(
-    JV,
+  JV = DiffEqDiffTools.finite_difference_jacobian(
     ___V,
     vparam,
     typeof(fdtype),
     eltype(vparam),
-    Val{false},
     relstep=fdrelstep,
     absstep=fdabsstep
   )

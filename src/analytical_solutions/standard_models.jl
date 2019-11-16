@@ -16,6 +16,8 @@ function _analytical_solve(m::M, t, t₀, amounts, doses, p, rates) where M<:Exp
 
   return SLVector(NamedTuple{varnames(M)}(amtₜ))
 end
+DiffEqBase.has_syms(x::ExplicitModel) = true
+Base.getproperty(x::ExplicitModel, symbol::Symbol) = symbol == :syms ? Pumas.varnames(typeof(x)) : getfield(x, symbol)
 
 struct ImmediateAbsorptionModel <: ExplicitModel end
 (m::ImmediateAbsorptionModel)(args...) = _analytical_solve(m, args...)

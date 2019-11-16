@@ -2,7 +2,8 @@ using Pumas.NCA, Test, CSV
 using Pumas
 
 file = Pumas.example_data("nca_test_data/dapa_IV")
-data = CSV.read(file)
+data = copy(CSV.read(file))
+rawdata = data
 
 timeu = u"hr"
 concu = u"mg/L"
@@ -169,6 +170,7 @@ for i in 1:24
   i == 1 && @test_nowarn ncareport
   i == 1 && @test_skip display(NCA.to_markdown(ncareport))
   i == 1 && @test_nowarn NCA.to_dataframe(ncareport)
+  i == 1 && @test normalizedose(missing, nca) === missing
 end
 
 @test_nowarn NCA.c0(NCASubject([0.3, 0.2], [0.1, 0.2], dose=NCADose(0, 0.1, nothing, NCA.IVBolus)))
@@ -190,3 +192,18 @@ subj = read_nca(df, verbose=false)[1]
 rename!(df, :blq => :_blq)
 subj = read_nca(df, verbose=false)[1]
 @test subj.time == [1; 2;findall(!iszero, df.conc);7]
+
+
+# check retcode
+ncapop2 = @test_nowarn read_nca(rawdata[1:370, :], id=:ID, time=:TIME, conc=:CObs, amt=:AMT_IV, route=:route,
+                                    llq=0concu, timeu=timeu, concu=concu, amtu=amtu)
+@test NCA.lambdaz(ncapop2, verbose=false)[end, end] === missing
+@test NCA.retcode(ncapop2)[end, end] === :NotEnoughDataAfterCmax
+@test NCA.lambdaz(ncapop2, verbose=false)[end, end] === missing
+@test NCA.retcode(ncapop2)[end, end] === :NotEnoughDataAfterCmax
+
+didxs = findall(!iszero, rawdata.AMT_IV)
+rawdata[rand(didxs), :AMT_IV] = 10
+_ncapop = @test_nowarn read_nca(rawdata, id=:ID, time=:TIME, conc=:CObs, amt=:AMT_IV, route=:route,
+                                    llq=0concu, timeu=timeu, concu=concu, amtu=amtu)
+@test ustrip.(NCA.doseamt(_ncapop)[!, end]) == rawdata[didxs, :AMT_IV]

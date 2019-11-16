@@ -365,7 +365,8 @@ end
 
   # Test that the types work on both stiff and non-stiff solver methods
   o = fit(theopmodel_solver_fo, theopp, param, Pumas.FO(), alg=Tsit5())
-  o = fit(theopmodel_solver_fo, theopp, param, Pumas.FO(), alg=Rosenbrock23())
+  o = fit(theopmodel_solver_fo, theopp, param, Pumas.FO(), alg=Rosenbrock23(autodiff=false))
+  @test_broken o = fit(theopmodel_solver_fo, theopp, param, Pumas.FO(), alg=Rosenbrock23()) isa Pumas.FittedPumasModel
 end
 
 @testset "run3.mod FOCE without interaction, diagonal omega and additive error" begin
@@ -618,12 +619,6 @@ end
     @test ebe_cov[i].η.Σ.mat[:] ≈ focei_ebes_cov[i,:] atol=1e-3
   end
 
-  Pumas.npde(
-    theopmodel_focei,
-    theopp[1],
-    param,
-    1000
-  )
   Pumas.epred(
     theopmodel_focei,
     theopp[1],
@@ -1056,7 +1051,7 @@ end
     end
 
     @testset "Cubature based estimation deviance test" begin
-      @test deviance(theopmodel_laplacei, theopp, param, Pumas.HCubeQuad()) ≈ 281.1606964897779 rtol=1e-6 #regression test
+      @test deviance(theopmodel_laplacei, theopp, param, Pumas.LLQuad(), iabstol=0, ireltol=0, imaxiters=typemax(Int)) ≈ 281.1606964897779 rtol=1e-6
     end
   end
 end

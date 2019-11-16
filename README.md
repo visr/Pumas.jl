@@ -196,19 +196,6 @@ julia> first(resout, 6)
 │ 6   │ 1      │ 0.0     │ 1     │ 74    │ 1344.63 │ 1679.77 │ FOCEI()     │ 0.273454 │ -0.638544 │ FOCEI()     │ -0.189025 │ -0.199515 │ FOCEI()     │
 ```
 
-### `validate` - `vpc`
-
-Finally validate your model with a visual predictive check
-
-```julia
-vpc(res,200) |> plot
-```
-![vpc](https://user-images.githubusercontent.com/1814174/62414967-8898bb00-b5f0-11e9-8358-de61ece4bdf2.png)
-
-or you can do a `vpc` into a new design as well.
-
-Plotting methods on model diagnostics are coming soon.
-
 ### Simulate from fitted model
 
 In order to simulate from a fitted model `simobs` can be used. The final parameters of the fitted models are available in the `coef(res)`

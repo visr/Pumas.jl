@@ -170,7 +170,7 @@ to be repeated in the other API functions
                           # Super messy and should get cleaned.
                           reltol=DEFAULT_ESTIMATION_RELTOL,
                           abstol=DEFAULT_ESTIMATION_ABSTOL,
-                          alg = AutoVern7(Rodas5()),
+                          alg = AutoVern7(Rodas5(autodiff=false)),
                           # Estimation only uses subject.time for the
                           # observation time series
                           obstimes = subject.time,
@@ -209,7 +209,8 @@ Samples a random value from a distribution or if it's a number assumes it's the
 constant distribution and passes it through.
 =#
 _rand(d::Distributions.Sampleable) = rand(d)
-_rand(d::AbstractArray{<:Distributions.Sampleable}) = map(_rand,d)
+_rand(d::AbstractArray) = map(_rand,d)
+_rand(d::NamedTuple) = map(_rand,d)
 _rand(d) = d
 
 """
@@ -227,7 +228,7 @@ function simobs(m::PumasModel, subject::Subject,
                 args...;
                 obstimes=observationtimes(subject),
                 saveat=obstimes,kwargs...)
-  col = m.pre(param, randeffs, subject)
+  col = m.pre(_rand(param), randeffs, subject)
   prob = _problem(m, subject, col, args...; saveat=saveat, kwargs...)
   alg = m.prob isa ExplicitModel ? nothing : alg=AutoTsit5(Rosenbrock23())
   sol = prob !== nothing ? solve(prob, args...; alg=alg, kwargs...) : nothing
@@ -245,8 +246,9 @@ function simobs(m::PumasModel, pop::Population,
                 kwargs...)
 
   function simobs_prob_func(prob,i,repeat)
-    _randeffs = randeffs === nothing ? sample_randeffs(m, param) : randeffs
-    col = m.pre(param, _randeffs, pop[i])
+    _param = _rand(param)
+    _randeffs = randeffs === nothing ? sample_randeffs(m, _param) : randeffs
+    col = m.pre(_param, _randeffs, pop[i])
     obstimes = :obstimes ∈ keys(kwargs) ? kwargs[:obstimes] : observationtimes(pop[i])
     saveat = :saveat ∈ keys(kwargs) ? kwargs[:saveat] : obstimes
     _problem(m,pop[i],col,args...; saveat=saveat,kwargs...)

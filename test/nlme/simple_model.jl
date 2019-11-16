@@ -45,7 +45,7 @@ end
 @test deviance(mdsl1, data, param, Pumas.FOCEI())     ≈ 56.410938825140313 rtol=1e-6
 @test deviance(mdsl1, data, param, Pumas.Laplace())   ≈ 56.613069180382027 rtol=1e-6
 @test deviance(mdsl1, data, param, Pumas.LaplaceI())  ≈ 56.810343602063618 rtol=1e-6
-@test deviance(mdsl1, data, param, Pumas.HCubeQuad()) ≈ 56.92491372848633  rtol=1e-6 #regression test
+@test deviance(mdsl1, data, param, Pumas.LLQuad()) ≈ 56.92491372848633  rtol=1e-6 #regression test
 
 ft = fit(mdsl1, data, param, Pumas.FOCEI())
 @test sprint((io, t) -> show(io, MIME"text/plain"(), t), ft) ==
