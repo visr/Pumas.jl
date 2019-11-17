@@ -381,7 +381,7 @@ function lambdaz(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT
   if slopetimes === nothing && idxs === nothing
     m = min(threshold, idx2-cmaxidx) - 1
     if m < 2
-        verbose && @info "ID $(nca.id) errored: lambdaz must be calculated from at least three data points between Cmax and Clast"
+        verbose && @info "ID $(nca.id) errored: lambdaz calculation needs at least three data points between Cmax and the last positive concentration"
         cachelambdaz!(nca)
         setretcode!(nca, :NotEnoughDataAfterCmax)
         return missing
