@@ -38,3 +38,5 @@
      include("error_handling.jl") end
 @time @safetestset "Automatic Differentiation Tests" begin
      include("ad_tests.jl") end
+@time @safetestset "Analytical models" begin
+     include("analytical_models.jl") end
