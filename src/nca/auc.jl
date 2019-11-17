@@ -379,7 +379,11 @@ function lambdaz(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT
   idx2 = findlast(x->x>zero(x), nca.conc)
   valid = false # check if lambdaz is calculated at all
   if slopetimes === nothing && idxs === nothing
-    m = min(threshold, idx2-cmaxidx) - 1
+    # we can include Cmax after infusion
+    tmax = time[cmaxidx]
+    isafterinfusion = nca.dose !== nothing && (nca.dose.formulation === IVBolus || (nca.dose.formulation === IVInfusion && tmax >= nca.dose.duration))
+    validpoints = isafterinfusion ? idx2-cmaxidx+1 : idx2-cmaxidx
+    m = min(threshold, validpoints) - 1
     if m < 2
         verbose && @info "ID $(nca.id) errored: lambdaz calculation needs at least three data points between Cmax and the last positive concentration"
         cachelambdaz!(nca)
