@@ -351,7 +351,10 @@ function aumc_extrap_percent(nca::NCASubject; kwargs...)
   (aumcinf-aumclast)/aumcinf * 100
 end
 
-fitlog(x, y) = lm(hcat(fill!(similar(x), 1), x), log.(replace(x->iszero(x) ? eps() : x, y)))
+function fitlog(x, y)
+  any(x->x<=zero(x), y) && return missing
+  return lm(hcat(fill!(similar(x), 1), x), log.(y))
+end
 
 """
     lambdaz(nca::NCASubject; threshold=10, idxs=nothing) -> lambdaz
@@ -373,22 +376,22 @@ function lambdaz(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT
   time′ = reinterpret(typeof(one(eltype(time))), time)
   conc′ = reinterpret(typeof(one(eltype(conc))), conc)
   _, cmaxidx = conc_extreme(conc, eachindex(conc), <)
-  n = length(time)
+  idx2 = findlast(x->x>zero(x), nca.conc)
+  valid = false # check if lambdaz is calculated at all
   if slopetimes === nothing && idxs === nothing
-    m = min(n-1, threshold-1, n-cmaxidx-1)
+    m = min(threshold, idx2-cmaxidx) - 1
     if m < 2
-        verbose && @info "ID $(nca.id) errored: lambdaz must be calculated from at least three data points after Cmax"
+        verbose && @info "ID $(nca.id) errored: lambdaz must be calculated from at least three data points between Cmax and Clast"
         cachelambdaz!(nca)
         setretcode!(nca, :NotEnoughDataAfterCmax)
         return missing
     end
-    idx2 = length(time′)
     for i in 2:m
-      idx1 = idx2-i
-      idxs = idx1:idx2
+      idxs = idx2-i:idx2
       x = time′[idxs]
       y = conc′[idxs]
       model = fitlog(x, y)
+      model === missing && continue
       adjr2 = oneunit(_F) * adjr²(model)
       if adjr2 > maxadjr2
         maxadjr2 = adjr2
@@ -398,6 +401,7 @@ function lambdaz(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT
         firstpoint = time[idxs[1]]
         lastpoint = time[idxs[end]]
         points = i+1
+        valid = true
       end
     end
   else
@@ -408,12 +412,21 @@ function lambdaz(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT
     x = time′[idxs]
     y = conc′[idxs]
     model = fitlog(x, y)
-    λ = oneunit(_Z) * coef(model)[2]
-    intercept = coef(model)[1]
-    r2 = oneunit(_F) * r²(model)
-    firstpoint = time[idxs[1]]
-    lastpoint = time[idxs[end]]
-    maxadjr2 = oneunit(_F) * adjr²(model)
+    if model !== missing
+      λ = oneunit(_Z) * coef(model)[2]
+      intercept = coef(model)[1]
+      r2 = oneunit(_F) * r²(model)
+      firstpoint = time[idxs[1]]
+      lastpoint = time[idxs[end]]
+      maxadjr2 = oneunit(_F) * adjr²(model)
+      valid = true
+    end
+  end
+  if !valid
+    verbose && @info "ID $(nca.id) errored: lambdaz calculation failed because of non-positive concentration"
+    cachelambdaz!(nca)
+    setretcode!(nca, :ConcentrationIsNotPositive)
+    return missing
   end
   if λ ≥ zero(λ)
     verbose && @info "ID $(nca.id) errored: the estimated slope is not negative, got $λ"
