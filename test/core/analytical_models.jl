@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 using Pumas, Test
 
 @test OneCmtModel().syms == (:Central,)
@@ -81,3 +82,13 @@ ocm = Pumas.LinearAlgebra.eigen(Metabolite011(), p)
 V = [-(46261+679*sqrt(131))/30000 -(46261-679*sqrt(131))/30000 0 0;(17+252*sqrt(131))/3000 (17-252*sqrt(131))/3000  0  0; (62-7*sqrt(131))/100    (62+7*sqrt(131))/100     (11-sqrt(1273))/24 (11+sqrt(1273))/24;1 1 1 1]
 @test all(ocm[1] .≈ [λ1, λ2, λ3, λ4])
 @test all(ocm[2] .≈ V)
+=======
+using Pumas
+
+@test ImmediateAbsorptionModel().syms == [:Central]
+@test Pumas.DiffEqBase.has_syms(ImmediateAbsorptionModel())
+@test OneCompartmentModel().syms == [:Depot, :Central]
+@test Pumas.DiffEqBase.has_syms(OneCompartmentModel())
+@test OneCompartmentParallelModel().syms == [:Depot1, :Depot2, :Central]
+@test Pumas.DiffEqBase.has_syms(OneCompartmentParallelModel())
+>>>>>>> master
