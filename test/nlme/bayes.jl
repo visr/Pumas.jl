@@ -33,7 +33,7 @@ theopp = read_pumas(example_data("event_data/THEOPP"),cvs = [:WT,:SEX])
           conc = Central / SC
       end
 
-      @dynamics OneCompartmentModel
+      @dynamics OneCmtDepotModel
 
       @derived begin
           dv ~ @. Normal(conc,sqrt(σ)+eps())

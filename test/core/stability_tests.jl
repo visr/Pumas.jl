@@ -40,7 +40,7 @@ m_analytic = @model begin
         CL = cl
         V  = v
     end
-    @dynamics OneCompartmentModel
+    @dynamics OneCmtDepotModel
 
     @derived begin
         conc = @. Central / V

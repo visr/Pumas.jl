@@ -35,7 +35,7 @@ m_analytic = @model begin
         CL = cl
         V  = v
     end
-    @dynamics OneCompartmentModel
+    @dynamics OneCmtDepotModel
 
     # we approximate the error by computing the conditional_nll
     @derived begin

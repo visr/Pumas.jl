@@ -211,7 +211,7 @@ end
             V  = θ[3]*exp(η[2])
         end
 
-        @dynamics OneCompartmentModel
+        @dynamics OneCmtDepotModel
 
         @derived begin
             cp = @. Central / V

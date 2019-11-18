@@ -48,7 +48,7 @@ model = @model begin
     V  = tvv * (wt/70) * exp(η[2])
   end
 
-  @dynamics ImmediateAbsorptionModel
+  @dynamics OneCmtModel
     #@dynamics begin
     #    Central' =  - (CL/V)*Central
     #end

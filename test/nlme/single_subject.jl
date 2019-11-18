@@ -19,7 +19,7 @@ mdsl1 = @model begin
         conc = Central / V
     end
 
-    @dynamics ImmediateAbsorptionModel
+    @dynamics OneCmtModel
 
     @derived begin
         dv ~ @. Normal(conc,conc*sqrt(Σ)+eps())
@@ -49,7 +49,7 @@ model = @model begin
     V  = tvv * (wt/70)
     end
 
-    @dynamics ImmediateAbsorptionModel
+    @dynamics OneCmtModel
     #@dynamics begin
     #    Central' =  - (CL/V)*Central
     #end

@@ -30,7 +30,7 @@ mdsl2 = @model begin
         conc = Central / V
     end
 
-    @dynamics OneCompartmentModel
+    @dynamics OneCmtDepotModel
 
     @derived begin
         dv ~ @. Normal(conc, sqrt(conc^2 *Σ.diag[1] + Σ.diag[end]) + eps())

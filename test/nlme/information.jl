@@ -27,7 +27,7 @@ using Pumas, LinearAlgebra
       Ka   = Tvka*exp(η[3])
     end
 
-    @dynamics OneCompartmentModel
+    @dynamics OneCmtDepotModel
 
     @vars begin
       conc = Central/V

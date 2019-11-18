@@ -38,7 +38,7 @@ function onecompartment_f(u,p,t)
     @SVector [Depot-Central]
 end
 
-pkprob = OneCompartmentModel()
+pkprob = OneCmtDepotModel()
 prob2 = ODEProblem(onecompartment_f,nothing,nothing,nothing)
 prob = AnalyticalPKProblem(pkprob,prob2)
 

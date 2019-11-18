@@ -25,7 +25,7 @@ tdist = @model begin
         conc = Central / V
     end
 
-    @dynamics ImmediateAbsorptionModel
+    @dynamics OneCmtModel
 
     @derived begin
         dv ~ @. LocationScale(conc, conc*sqrt(σ²), TDist(30))
