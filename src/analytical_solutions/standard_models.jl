@@ -82,6 +82,8 @@ function _Λ(::TwoCmtPeriModel, a, b, c)
   S = sqrt(A^2-4*a*c)
   Λ = @SVector([-(A+S)/2, -(A-S)/2])
 end
+# b is from actual cmt to peri, c is back
+_V(::TwoCmtPeriModel, Λ, b, c) = @SMatrix([(Λ[1]+c)/b (Λ[2]+c)/b])
 struct TwoCmtPeriModel <: ExplicitModel end
 (m::TwoCmtPeriModel)(args...) = _analytical_solve(m, args...)
 @inline function LinearAlgebra.eigen(m::TwoCmtPeriModel, p)
@@ -90,8 +92,7 @@ struct TwoCmtPeriModel <: ExplicitModel end
     c = p.Q/p.Vp
 
     Λ = _Λ(m, a, b, c)
-    𝕍 = @SMatrix([(Λ[1]+c)/b (Λ[2]+c)/b;
-                   1          1        ])
+    𝕍 = vcat(_V(m, Λ, b, c), @SMatrix([1 1]))
 
     return Λ, 𝕍
 end
@@ -135,26 +136,22 @@ struct Metabolite011 <: ExplicitModel end # 011?
 
   a′ = a + d
   α′ = a′ + b
-  A = a + b + c + d
   ϵ = e + f
-  tf = 2*f
-  E = e + f + h
-  S = sqrt(A^2 - 4*(a+d)*c)
-  W = sqrt(E^2 - 4*e*h)
-  Λ = @SVector([-(A + S)/2, -(A - S)/2,  -(E + W)/2,  -(E - W)/2])
 
-  R = sqrt(α′^2 + (c - 2*(a + b))*c)
+  m′ = TwoCmtPeriModel()
+  Λ = vcat(_Λ(m′, a′, b, c),  _Λ(m′, e, f, h))
 
   v1_3 = (Λ[1] + h)/f
-  v1_1 = (Λ[1] + ϵ) *(Λ[1] + h)/(d*f) - h/d
-  v1_2 = (Λ[1] + α′)*(Λ[1] + ϵ)*(Λ[1] + h)/(c*d*f) - (α′ + Λ[1])*h/(c*d)
+  v1_1 = ((Λ[1] + ϵ) * v1_3 - h)/d
+  v1_2 = (Λ[1] + α′) * v1_1/c
 
   v2_3 = (Λ[2] + h)/f
   v2_1 = ((Λ[2] + ϵ) * v2_3 - h)/d
-  v2_2 = (Λ[2] + α′) * (Λ[2] + ϵ)*v2_3/(c*d) - (α′ + Λ[2])*h/(c*d)
+  v2_2 = (Λ[2] + α′) * v2_1/c
 
-  v3_3 = -(ϵ - h + W)/tf
-  v4_3 = -(ϵ - h - W)/tf
+
+  v3_3 = (Λ[3] + h)/f
+  v4_3 = (Λ[4] + h)/f
 
   𝕍 = @SMatrix([v1_1  v2_1  0   0  ;
                 v1_2  v2_2  0   0  ;
@@ -166,16 +163,6 @@ end
 varnames(::Type{Metabolite011}) = (:Central, :CPeripheral, :Metabolite, :MPeripheral)
 pk_init(::Metabolite011) = SLVector(Central=0.0, CPeripheral=0.0, Metabolite=0.0, MPeripheral=0.0
 )
-
-function _meta_λ1(a, b, c)
-  α = a + b + c
-  -(α + sqrt(α^2 + 4*a*c))/2
-end
-function _meta_λ2(a, b, c)
-  α = a + b + c
-  -(α - sqrt(α^2 - 4*a*c))/2
-end
-
 
 # use Vc and Vm
 _Λ(::Metabolite01, a, b, c, d) = _Λ(TwoCmtPeriModel(), a+d, b, c)
@@ -200,9 +187,8 @@ struct Metabolite01 <: ExplicitModel end # 011?
   𝕍 = @SMatrix([v1_1 v2_1 0;
                 v1_2 v2_2 0;
                 1    1    1])
-  𝕍⁻¹ = inv(𝕍)
 
-  return Λ, 𝕍, 𝕍⁻¹
+  return Λ, 𝕍
 end
 varnames(::Type{Metabolite01}) = (:Central, :CPeripheral, :Metabolite)
 pk_init(::Metabolite01) = SLVector(Central=0.0, CPeripheral=0.0, Metabolite=0.0)
