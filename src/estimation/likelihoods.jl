@@ -11,6 +11,9 @@ struct FOCE <: LikelihoodApproximation end
 struct FOCEI <: LikelihoodApproximation end
 struct Laplace <: LikelihoodApproximation end
 struct LaplaceI <: LikelihoodApproximation end
+struct GaussHermite{LA} <: LikelihoodApproximation
+  npoints::Int
+end
 struct LLQuad{T} <: LikelihoodApproximation
   quadalg::T
 end
@@ -261,6 +264,22 @@ function _orth_empirical_bayes!(
   return vrandeffsorth
 end
 
+_orth_empirical_bayes!(
+  vrandeffsorth::AbstractVector,
+  m::PumasModel,
+  subject::Subject,
+  param::NamedTuple,
+  ::GaussHermite{LA},
+  args...;
+  # We explicitly use reltol to compute the right step size for finite difference based gradient
+  kwargs...) where {LA} = _orth_empirical_bayes!(
+    vrandeffsorth,
+    m,
+    subject,
+    param,
+    LA(),
+    args...; kwargs...)
+
 
 """
     empirical_bayes_dist(model, subject, param, vrandeffsorth::AbstractVector, approx, ...)
@@ -466,6 +485,50 @@ function _marginal_nll(_dv_∂²l∂η², vrandeffsorth, approx::Union{FOCE,FOCE
   end
   # conditional likelihood return Inf
   return typeof(nl)(Inf)
+end
+
+const GAUSSHERMITE = Dict{Int,Tuple{Vector{Float64},Vector{Float64}}}()
+
+function quadratureweights(nqp::Int)
+  if haskey(GAUSSHERMITE, nqp)
+    return GAUSSHERMITE[nqp]
+  else
+    qp = gausshermite(nqp)
+    GAUSSHERMITE[nqp] = qp
+    return qp
+  end
+end
+
+function marginal_nll(m::PumasModel,
+                      subject::Subject,
+                      param::NamedTuple,
+                      vrandeffsorth::AbstractVector,
+                      approx::GaussHermite{LA},
+                      args...; kwargs...)::promote_type(numtype(param), numtype(vrandeffsorth)) where LA
+
+  ws = quadratureweights(approx.npoints)
+  zws = zip(ws...)
+  pzws = Iterators.product(ntuple(i -> zws, length(vrandeffsorth))...)
+
+  dv_∂²l∂η² = ∂²l∂η²(m, subject, param, vrandeffsorth, LA(), args...; kwargs...)
+
+   nll = sum(dv_∂²l∂η²) do _dv_∂²l∂η²
+    nl, _, W = _dv_∂²l∂η²
+    CF = cholesky(W + I)
+    Ldv = sum(pzws) do _xw
+      x = SVector(first.(_xw))
+      w = prod(last, _xw)
+      if w > eps(eltype(w))^length(vrandeffsorth)
+        lnpl = -penalized_conditional_nll(m, subject, param, CF.U\x*sqrt(2) + vrandeffsorth, args...; kwargs...)
+        return exp(lnpl + x'x)*w
+      else
+        return zero(nl)
+      end
+    end
+    return -log(Ldv) + logdet(CF.U) + log(π)/2*length(vrandeffsorth)
+  end
+
+  return nll
 end
 
 function marginal_nll(m::PumasModel,

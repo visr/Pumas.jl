@@ -4,7 +4,7 @@ using DiffEqDiffTools, Reexport, StatsBase,
       StaticArrays, Distributed, LabelledArrays, GLM,
       TreeViews, CSV, ForwardDiff, DiffResults, Optim, PDMats,
       Missings, RecipesBase, RecursiveArrayTools, Quadrature,
-      Statistics, DiffEqSensitivity
+      Statistics, DiffEqSensitivity, FastGaussQuadrature
 using LinearAlgebra
 using AdvancedHMC: DiagEuclideanMetric, Hamiltonian, NUTS, Leapfrog, find_good_eps, StanHMCAdaptor, Preconditioner, NesterovDualAveraging
 import MCMCChains: Chains
