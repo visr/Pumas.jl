@@ -362,7 +362,7 @@ end
 Calculate terminal elimination rate constant ``λz``.
 """
 function lambdaz(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT};
-                 threshold=10, idxs=nothing, slopetimes=nothing, recompute=true, verbose=true, kwargs...
+                 adjr2factor=0.0001, threshold=10, idxs=nothing, slopetimes=nothing, recompute=true, verbose=true, kwargs...
                 )::Union{Missing,eltype(Z)} where {C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}
   if iscached(nca, :lambdaz) && !recompute
     return _first(nca.lambdaz)
@@ -372,6 +372,7 @@ function lambdaz(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT
   !(idxs === nothing) && !(slopetimes === nothing) && throw(ArgumentError("you must provide only one of idxs or slopetimes"))
   conc, time = nca.conc, nca.time
   maxadjr2::_F = -oneunit(_F)
+  adjr2factor *= oneunit(_F)
   λ::_Z = zero(_Z)
   time′ = reinterpret(typeof(one(eltype(time))), time)
   conc′ = reinterpret(typeof(one(eltype(conc))), conc)
@@ -397,11 +398,12 @@ function lambdaz(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT
       model = fitlog(x, y)
       model === missing && continue
       adjr2 = oneunit(_F) * adjr²(model)
-      if adjr2 > maxadjr2
+      if adjr2 > (maxadjr2 - adjr2factor)
         maxadjr2 = adjr2
         r2 = oneunit(_F) * r²(model)
-        λ = oneunit(_Z) * coef(model)[2]
-        intercept = coef(model)[1]
+        coefs = coef(model)
+        λ = oneunit(_Z) * coefs[2]
+        intercept = coefs[1]
         firstpoint = time[idxs[1]]
         lastpoint = time[idxs[end]]
         points = i+1
