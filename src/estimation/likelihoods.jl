@@ -1031,22 +1031,31 @@ struct FittedPumasModel{T1<:PumasModel,T2<:Population,T3,T4<:LikelihoodApproxima
   fixedtrf::T8
 end
 
-function DEFAULT_OPTIMIZE_FN(cost, p, callback)
+struct DefaultOptimizeFN{A,L,K}
+  linesearch::L
+  kwargs::K
+end
+
+DefaultOptimizeFN(linesearch = Optim.LineSearches.BackTracking();kwargs...) =
+                  DefaultOptimizeFN(linesearch,(show_trace=false, # Print progress
+                                                store_trace=true,
+                                                extended_trace=true,
+                                                g_tol=1e-3,
+                                                allow_f_increases=true,
+                                                kwargs...))
+
+function (A::DefaultOptimizeFN)(cost, p, callback)
   Optim.optimize(
     cost,
     p,
     BFGS(
-      linesearch=Optim.LineSearches.BackTracking(),
+      linesearch=A.linesearch,
       # Make sure that step isn't too large by scaling initial Hessian by the norm of the initial gradient
       initial_invH=t -> Matrix(I/norm(Optim.NLSolversBase.gradient(cost)), length(p), length(p))
     ),
     Optim.Options(
-      show_trace=false, # Print progress
-      store_trace=true,
-      extended_trace=true,
-      g_tol=1e-3,
-      allow_f_increases=true,
-      callback=callback
+      callback=callback,
+      A.kwargs...
     )
   )
 end
@@ -1088,7 +1097,7 @@ function Distributions.fit(m::PumasModel,
                            # procedure calls cl. In that case, the estimation of the EBEs will always begin
                            # in zero. In addition, the returned object should support a opt_minimizer method
                            # that returns the optimized parameters.
-                           optimize_fn = DEFAULT_OPTIMIZE_FN,
+                           optimize_fn = DefaultOptimizeFN(),
                            constantcoef = NamedTuple(),
                            kwargs...)
 
