@@ -24,7 +24,7 @@ mdsl1 = @model begin
         conc = Central / V
     end
 
-    @dynamics OneCmtModel
+    @dynamics Central1
 
     @derived begin
         dv ~ @. Normal(conc,conc*sqrt(Σ)+eps())
@@ -78,7 +78,7 @@ end
            conc = Central / V
        end
 
-       @dynamics OneCmtModel
+       @dynamics Central1
 
        @derived begin
            dv_conc ~ @. Normal(conc, σ)
@@ -105,7 +105,7 @@ end
            conc = Central / V
        end
 
-       @dynamics OneCmtModel
+       @dynamics Central1
 
        @derived begin
            dv_conc ~ @. Normal(conc, conc*σ)
@@ -132,7 +132,7 @@ end
            conc = Central / V
        end
 
-       @dynamics OneCmtModel
+       @dynamics Central1
 
        @derived begin
            dv_conc ~ @. LogNormal(log(conc), σ)

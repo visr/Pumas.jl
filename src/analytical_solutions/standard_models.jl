@@ -1,6 +1,6 @@
-export OneCmtModel, OneCmtDepotModel, OneCmtTwoDepotModel,
-       TwoCmtPeriModel, TwoCmtDepotPeriModel,
-       Metabolite01, Metabolite011
+export Central1, DepotCentral1, TwoDepotsCentral1,
+       Central2, DepotCentral2,
+       Metabolite12, Metabolite22
 
 abstract type ExplicitModel end
 # Generic ExplicitModel solver. Uses an analytical eigen solution.
@@ -21,9 +21,9 @@ end
 DiffEqBase.has_syms(x::ExplicitModel) = true
 Base.getproperty(x::ExplicitModel, symbol::Symbol) = symbol == :syms ? Pumas.varnames(typeof(x)) : getfield(x, symbol)
 
-struct OneCmtModel <: ExplicitModel end
-(m::OneCmtModel)(args...) = _analytical_solve(m, args...)
-@inline function LinearAlgebra.eigen(::OneCmtModel, p)
+struct Central1 <: ExplicitModel end
+(m::Central1)(args...) = _analytical_solve(m, args...)
+@inline function LinearAlgebra.eigen(::Central1, p)
   Ke = p.CL/p.V
   T = typeof(Ke)
 
@@ -32,12 +32,12 @@ struct OneCmtModel <: ExplicitModel end
 
   return Λ, 𝕍
 end
-varnames(::Type{OneCmtModel}) = (:Central,)
-pk_init(::OneCmtModel) = SLVector(Central=0.0)
+varnames(::Type{Central1}) = (:Central,)
+pk_init(::Central1) = SLVector(Central=0.0)
 
-struct OneCmtDepotModel <: ExplicitModel end
-(m::OneCmtDepotModel)(args...) = _analytical_solve(m, args...)
-@inline function LinearAlgebra.eigen(::OneCmtDepotModel, p)
+struct DepotCentral1 <: ExplicitModel end
+(m::DepotCentral1)(args...) = _analytical_solve(m, args...)
+@inline function LinearAlgebra.eigen(::DepotCentral1, p)
     a = p.Ka
     e = p.CL/p.V
 
@@ -48,12 +48,12 @@ struct OneCmtDepotModel <: ExplicitModel end
 
     return Λ, 𝕍
 end
-varnames(::Type{OneCmtDepotModel}) = (:Depot, :Central)
-pk_init(::OneCmtDepotModel) = SLVector(Depot=0.0,Central=0.0)
+varnames(::Type{DepotCentral1}) = (:Depot, :Central)
+pk_init(::DepotCentral1) = SLVector(Depot=0.0,Central=0.0)
 
-struct OneCmtTwoDepotModel <: ExplicitModel end
-(m::OneCmtTwoDepotModel)(args...) = _analytical_solve(m, args...)
-@inline function LinearAlgebra.eigen(::OneCmtTwoDepotModel, p)
+struct TwoDepotsCentral1 <: ExplicitModel end
+(m::TwoDepotsCentral1)(args...) = _analytical_solve(m, args...)
+@inline function LinearAlgebra.eigen(::TwoDepotsCentral1, p)
     a = p.Ka1
     b = p.Ka2
     e = p.CL/p.V
@@ -74,19 +74,19 @@ struct OneCmtTwoDepotModel <: ExplicitModel end
 
     return Λ, 𝕍
 end
-varnames(::Type{OneCmtTwoDepotModel}) = (:Depot1, :Depot2, :Central)
-pk_init(::OneCmtTwoDepotModel) = SLVector(Depot1=0.0,Depot2=0.0,Central=0.0)
+varnames(::Type{TwoDepotsCentral1}) = (:Depot1, :Depot2, :Central)
+pk_init(::TwoDepotsCentral1) = SLVector(Depot1=0.0,Depot2=0.0,Central=0.0)
 
 # b is from actual cmt to peri, c is back
-struct TwoCmtPeriModel <: ExplicitModel end
-_V(::TwoCmtPeriModel, Λ, b, c) = @SMatrix([(Λ[1]+c)/b (Λ[2]+c)/b])
-function _Λ(::TwoCmtPeriModel, a, b, c)
+struct Central2 <: ExplicitModel end
+_V(::Central2, Λ, b, c) = @SMatrix([(Λ[1]+c)/b (Λ[2]+c)/b])
+function _Λ(::Central2, a, b, c)
   A = a + b + c
   S = sqrt(A^2-4*a*c)
   Λ = @SVector([-(A+S)/2, -(A-S)/2])
 end
-(m::TwoCmtPeriModel)(args...) = _analytical_solve(m, args...)
-@inline function LinearAlgebra.eigen(m::TwoCmtPeriModel, p)
+(m::Central2)(args...) = _analytical_solve(m, args...)
+@inline function LinearAlgebra.eigen(m::Central2, p)
     a = p.CL/p.Vc
     b = p.Q/p.Vc
     c = p.Q/p.Vp
@@ -96,12 +96,12 @@ end
 
     return Λ, 𝕍
 end
-varnames(::Type{TwoCmtPeriModel}) = (:Central, :Peripheral)
-pk_init(::TwoCmtPeriModel) = SLVector(Central=0.0, Peripheral=0.0)
+varnames(::Type{Central2}) = (:Central, :Peripheral)
+pk_init(::Central2) = SLVector(Central=0.0, Peripheral=0.0)
 
-struct TwoCmtDepotPeriModel <: ExplicitModel end
-(m::TwoCmtDepotPeriModel)(args...) = _analytical_solve(m, args...)
-@inline function LinearAlgebra.eigen(::TwoCmtDepotPeriModel, p)
+struct DepotCentral2 <: ExplicitModel end
+(m::DepotCentral2)(args...) = _analytical_solve(m, args...)
+@inline function LinearAlgebra.eigen(::DepotCentral2, p)
   k = p.Ka
   a = p.CL/p.Vc
   b = p.Q/p.Vc
@@ -109,7 +109,7 @@ struct TwoCmtDepotPeriModel <: ExplicitModel end
 
   A = a + b + c
 
-  Λ, 𝕍 = eigen(TwoCmtPeriModel(), p)
+  Λ, 𝕍 = eigen(Central2(), p)
   Λ = pushfirst(Λ, -k)
 
   𝕍 = vcat(@SMatrix([0 0;]), 𝕍) # pad with zeros
@@ -118,14 +118,14 @@ struct TwoCmtDepotPeriModel <: ExplicitModel end
 
   return Λ, 𝕍, inv(𝕍)
 end
-varnames(::Type{TwoCmtDepotPeriModel}) = (:Depot, :Central, :Peripheral)
-pk_init(::TwoCmtDepotPeriModel) = SLVector(Depot=0.0, Central=0.0, Peripheral=0.0)
+varnames(::Type{DepotCentral2}) = (:Depot, :Central, :Peripheral)
+pk_init(::DepotCentral2) = SLVector(Depot=0.0, Central=0.0, Peripheral=0.0)
 
 
 # use Vc and Vm
-struct Metabolite011 <: ExplicitModel end # 011?
-(m::Metabolite011)(args...) = _analytical_solve(m, args...)
-@inline function LinearAlgebra.eigen(::Metabolite011, p)
+struct Metabolite22 <: ExplicitModel end # 011?
+(m::Metabolite22)(args...) = _analytical_solve(m, args...)
+@inline function LinearAlgebra.eigen(::Metabolite22, p)
   a = p.CL1/p.V1
   b = p.Q1/p.V1
   c = p.Q1/p.Vp1
@@ -138,7 +138,7 @@ struct Metabolite011 <: ExplicitModel end # 011?
   α′ = a′ + b
   ϵ = e + f
 
-  m′ = TwoCmtPeriModel()
+  m′ = Central2()
   Λ = vcat(_Λ(m′, a′, b, c),  _Λ(m′, e, f, h))
 
   v1_3 = (Λ[1] + h)/f
@@ -160,15 +160,15 @@ struct Metabolite011 <: ExplicitModel end # 011?
 
   return Λ, 𝕍
 end
-varnames(::Type{Metabolite011}) = (:Central, :CPeripheral, :Metabolite, :MPeripheral)
-pk_init(::Metabolite011) = SLVector(Central=0.0, CPeripheral=0.0, Metabolite=0.0, MPeripheral=0.0
+varnames(::Type{Metabolite22}) = (:Central, :CPeripheral, :Metabolite, :MPeripheral)
+pk_init(::Metabolite22) = SLVector(Central=0.0, CPeripheral=0.0, Metabolite=0.0, MPeripheral=0.0
 )
 
 # use Vc and Vm
-struct Metabolite01 <: ExplicitModel end # 011?
-_Λ(::Metabolite01, a, b, c, d) = _Λ(TwoCmtPeriModel(), a+d, b, c)
-(m::Metabolite01)(args...) = _analytical_solve(m, args...)
-@inline function LinearAlgebra.eigen(m::Metabolite01, p)
+struct Metabolite12 <: ExplicitModel end # 011?
+_Λ(::Metabolite12, a, b, c, d) = _Λ(Central2(), a+d, b, c)
+(m::Metabolite12)(args...) = _analytical_solve(m, args...)
+@inline function LinearAlgebra.eigen(m::Metabolite12, p)
   a = p.CL1/p.V1
   b = p.Q11/p.V1
   c = p.Q11/p.Vp1
@@ -190,5 +190,5 @@ _Λ(::Metabolite01, a, b, c, d) = _Λ(TwoCmtPeriModel(), a+d, b, c)
 
   return Λ, 𝕍
 end
-varnames(::Type{Metabolite01}) = (:Central, :CPeripheral, :Metabolite)
-pk_init(::Metabolite01) = SLVector(Central=0.0, CPeripheral=0.0, Metabolite=0.0)
+varnames(::Type{Metabolite12}) = (:Central, :CPeripheral, :Metabolite)
+pk_init(::Metabolite12) = SLVector(Central=0.0, CPeripheral=0.0, Metabolite=0.0)

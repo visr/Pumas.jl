@@ -32,7 +32,7 @@ using Pumas, CSV
         conc = Central / V
       end
 
-      @dynamics OneCmtModel
+      @dynamics Central1
 
       @derived begin
         dv ~ @. Normal(conc, sqrt(σ²))
@@ -67,7 +67,7 @@ using Pumas, CSV
         conc = Central / V
       end
 
-      @dynamics OneCmtModel
+      @dynamics Central1
 
       @derived begin
         dv ~ @. Normal(conc, conc*sqrt(σ²))
@@ -102,7 +102,7 @@ using Pumas, CSV
         conc = Central / V
       end
 
-      @dynamics OneCmtModel
+      @dynamics Central1
 
       @derived begin
         dv ~ @. LogNormal(log(conc), sqrt(σ²))
@@ -146,7 +146,7 @@ using Pumas, CSV
         conc = Central / V
       end
 
-      @dynamics OneCmtModel
+      @dynamics Central1
 
       @derived begin
         dv ~ @. Normal(log(conc), sqrt(σ²))

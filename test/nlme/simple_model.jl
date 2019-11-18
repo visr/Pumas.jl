@@ -24,7 +24,7 @@ mdsl1 = @model begin
         conc = Central / V
     end
 
-    @dynamics OneCmtModel
+    @dynamics Central1
 
     @derived begin
         dv ~ @. Normal(conc,conc*sqrt(Σ)+eps())

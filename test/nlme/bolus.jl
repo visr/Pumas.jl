@@ -33,7 +33,7 @@ using Pumas, Test, CSV
         conc = Central / V
       end
 
-      @dynamics OneCmtModel
+      @dynamics Central1
 
       @derived begin
         dv ~ @. Normal(conc, abs(conc)*sqrt(σ_prop))
@@ -149,7 +149,7 @@ using Pumas, Test, CSV
        conc = Central / V
       end
 
-      @dynamics OneCmtModel
+      @dynamics Central1
 
       @derived begin
        dv ~ @. Normal(conc, sqrt(conc^2*σ_prop + σ_add))

@@ -48,7 +48,7 @@ model = @model begin
     V  = tvv * (wt/70) * exp(η[2])
   end
 
-  @dynamics OneCmtModel
+  @dynamics Central1
     #@dynamics begin
     #    Central' =  - (CL/V)*Central
     #end

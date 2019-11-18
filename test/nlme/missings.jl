@@ -31,7 +31,7 @@ using Pumas, Test
         conc = Central / V
     end
 
-    @dynamics OneCmtModel
+    @dynamics Central1
 
     @derived begin
         dv ~ @. Normal(conc, σ)
@@ -58,7 +58,7 @@ using Pumas, Test
         conc = Central / V
     end
 
-    @dynamics OneCmtModel
+    @dynamics Central1
 
     @derived begin
         dv ~ @. Normal(conc, conc*σ)
@@ -85,7 +85,7 @@ using Pumas, Test
         conc = Central / V
     end
 
-    @dynamics OneCmtModel
+    @dynamics Central1
 
     @derived begin
         dv ~ @. LogNormal(log(conc), σ)

@@ -68,7 +68,7 @@ m_analytic = @model begin
         V  = θ[3] * exp(η[2])
     end
 
-    @dynamics OneCmtDepotModel
+    @dynamics DepotCentral1
 
     @derived begin
         conc = @. Central / V
