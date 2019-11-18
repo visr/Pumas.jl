@@ -1032,11 +1032,11 @@ struct FittedPumasModel{T1<:PumasModel,T2<:Population,T3,T4<:LikelihoodApproxima
 end
 
 struct DefaultOptimizeFN{A,L,K}
-  linesearch::L
+  alg::A
   kwargs::K
 end
 
-DefaultOptimizeFN(linesearch = Optim.LineSearches.BackTracking();kwargs...) =
+DefaultOptimizeFN(alg = nothing;kwargs...) =
                   DefaultOptimizeFN(linesearch,(show_trace=false, # Print progress
                                                 store_trace=true,
                                                 extended_trace=true,
@@ -1045,14 +1045,21 @@ DefaultOptimizeFN(linesearch = Optim.LineSearches.BackTracking();kwargs...) =
                                                 kwargs...))
 
 function (A::DefaultOptimizeFN)(cost, p, callback)
+
+  if A.alg === nothing
+    _alg = BFGS(
+      linesearch=Optim.LineSearches.BackTracking(),
+      # Make sure that step isn't too large by scaling initial Hessian by the norm of the initial gradient
+      initial_invH=t -> Matrix(I/norm(Optim.NLSolversBase.gradient(cost)), length(p), length(p))
+    )
+  else
+    _alg = A.alg
+  end
+
   Optim.optimize(
     cost,
     p,
-    BFGS(
-      linesearch=A.linesearch,
-      # Make sure that step isn't too large by scaling initial Hessian by the norm of the initial gradient
-      initial_invH=t -> Matrix(I/norm(Optim.NLSolversBase.gradient(cost)), length(p), length(p))
-    ),
+    _alg,
     Optim.Options(
       callback=callback,
       A.kwargs...
