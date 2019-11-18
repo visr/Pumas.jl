@@ -77,14 +77,14 @@ end
 varnames(::Type{OneCmtTwoDepotModel}) = (:Depot1, :Depot2, :Central)
 pk_init(::OneCmtTwoDepotModel) = SLVector(Depot1=0.0,Depot2=0.0,Central=0.0)
 
+# b is from actual cmt to peri, c is back
+struct TwoCmtPeriModel <: ExplicitModel end
+_V(::TwoCmtPeriModel, Λ, b, c) = @SMatrix([(Λ[1]+c)/b (Λ[2]+c)/b])
 function _Λ(::TwoCmtPeriModel, a, b, c)
   A = a + b + c
   S = sqrt(A^2-4*a*c)
   Λ = @SVector([-(A+S)/2, -(A-S)/2])
 end
-# b is from actual cmt to peri, c is back
-struct TwoCmtPeriModel <: ExplicitModel end
-_V(::TwoCmtPeriModel, Λ, b, c) = @SMatrix([(Λ[1]+c)/b (Λ[2]+c)/b])
 (m::TwoCmtPeriModel)(args...) = _analytical_solve(m, args...)
 @inline function LinearAlgebra.eigen(m::TwoCmtPeriModel, p)
     a = p.CL/p.Vc
@@ -165,8 +165,8 @@ pk_init(::Metabolite011) = SLVector(Central=0.0, CPeripheral=0.0, Metabolite=0.0
 )
 
 # use Vc and Vm
-_Λ(::Metabolite01, a, b, c, d) = _Λ(TwoCmtPeriModel(), a+d, b, c)
 struct Metabolite01 <: ExplicitModel end # 011?
+_Λ(::Metabolite01, a, b, c, d) = _Λ(TwoCmtPeriModel(), a+d, b, c)
 (m::Metabolite01)(args...) = _analytical_solve(m, args...)
 @inline function LinearAlgebra.eigen(m::Metabolite01, p)
   a = p.CL1/p.V1
