@@ -83,8 +83,8 @@ function _Λ(::TwoCmtPeriModel, a, b, c)
   Λ = @SVector([-(A+S)/2, -(A-S)/2])
 end
 # b is from actual cmt to peri, c is back
-_V(::TwoCmtPeriModel, Λ, b, c) = @SMatrix([(Λ[1]+c)/b (Λ[2]+c)/b])
 struct TwoCmtPeriModel <: ExplicitModel end
+_V(::TwoCmtPeriModel, Λ, b, c) = @SMatrix([(Λ[1]+c)/b (Λ[2]+c)/b])
 (m::TwoCmtPeriModel)(args...) = _analytical_solve(m, args...)
 @inline function LinearAlgebra.eigen(m::TwoCmtPeriModel, p)
     a = p.CL/p.Vc
