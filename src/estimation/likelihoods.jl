@@ -37,6 +37,7 @@ _lpdf(d::Distributions.Sampleable, x::Number) = isnan(x) ? zval(d) : logpdf(d,x)
 _lpdf(d::Constrained, x) = _lpdf(d.dist, x)
 _lpdf(d::Domain, x) = 0.0
 function _lpdf(ds::AbstractVector, xs::AbstractVector)
+  if length(ds) != length(xs)
     throw(DimensionMismatch("vectors must have same length"))
   end
   l = _lpdf(ds[1], xs[1])
