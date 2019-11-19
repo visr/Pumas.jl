@@ -1,6 +1,6 @@
 name = "Pumas"
 uuid = "4f2c3c20-a4ac-11e9-067b-e5872d3484cf"
-version = "0.4.0"
+version = "0.7.0"
 
 [deps]
 AdvancedHMC = "0bf59076-c3b1-5ca4-86bd-e02cd72cde3d"
@@ -44,15 +44,15 @@ Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
 
 [compat]
 DataFrames = "0.19"
-DiffEqBase = "6.3.4"
+DiffEqBase = "6.5"
 DiffEqDiffTools = "1.4"
-DiffEqSensitivity = "4.0.1"
+DiffEqSensitivity = "4.1.3"
 ForwardDiff = "0.10.4"
 LabelledArrays = "0.7.1"
 MCMCChains = "0.3.11"
 ModelingToolkit = "0.9"
 Parameters = "0.10, 0.11, 0.12"
-OrdinaryDiffEq = "5.20"
+OrdinaryDiffEq = "5.23"
 StochasticDiffEq = "6.10"
 TransformVariables = "< 0.3.5"
 julia = "1.1"
