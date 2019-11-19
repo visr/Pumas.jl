@@ -1060,7 +1060,7 @@ function (A::DefaultOptimizeFN)(cost, p, callback)
     cost,
     p,
     _alg,
-    Optim.Options(
+    Optim.Options(;
       callback=callback,
       A.kwargs...
     )
