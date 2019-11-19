@@ -1037,7 +1037,7 @@ struct DefaultOptimizeFN{A,L,K}
 end
 
 DefaultOptimizeFN(alg = nothing;kwargs...) =
-                  DefaultOptimizeFN(linesearch,(show_trace=false, # Print progress
+                  DefaultOptimizeFN(alg,(show_trace=false, # Print progress
                                                 store_trace=true,
                                                 extended_trace=true,
                                                 g_tol=1e-3,
