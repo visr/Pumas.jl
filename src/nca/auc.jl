@@ -135,9 +135,9 @@ function _auc(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}, 
   ret_typ = Union{ret_typ, Missing}
   if interval === nothing && nca.method === method
     if auctype === :inf
-      _clast = clast(nca; kwargs...)
+      _clast = clast(nca; verbose=verbose, kwargs...)
       _tlast = tlast(nca)
-      aucinf′ = inf(_clast, _tlast, lambdaz(nca; recompute=false, kwargs...))
+      aucinf′ = inf(_clast, _tlast, lambdaz(nca; recompute=false, verbose=verbose, kwargs...))
       isauc  && iscached(nca, :auc)  && return (nca.auc_last[1] + aucinf′) ::ret_typ
       !isauc && iscached(nca, :aumc) && return (nca.aumc_last[1] + aucinf′)::ret_typ
     elseif auctype === :last
@@ -150,7 +150,7 @@ function _auc(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}, 
 
   auctype in (:inf, :last) || throw(ArgumentError("auctype must be either :inf or :last"))
   method in (:linear, :linuplogdown, :linlog) || throw(ArgumentError("method must be :linear, :linuplogdown or :linlog"))
-  _clast = clast(nca; kwargs...)
+  _clast = clast(nca; verbose=verbose, kwargs...)
   _tlast = tlast(nca)
   # type assert `auc`
   auc::ret_typ = zero(ret_typ)
@@ -190,7 +190,7 @@ function _auc(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}, 
     if isfinite(hi)
       concend = interpextrapconc(nca, hi; method=method, kwargs...)
       if hi > _tlast # if we are extrapolating at the last point, let's use the logarithm trapezoid
-        λz = lambdaz(nca; recompute=false, kwargs...)
+        λz = lambdaz(nca; recompute=false, verbose=verbose, kwargs...)
         auc += intervalauc(conc[idx2], concend, time[idx2], hi, idx2, maxidx(nca), method, linear, log, ret_typ)
       else
         auc += intervalauc(conc[idx2], concend, time[idx2], hi, idx2, maxidx(nca), method, linear, log, ret_typ)
@@ -234,7 +234,7 @@ function _auc(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}, 
 
   # add the extrapolation part
   if isaucinf(auctype, interval)
-    λz = lambdaz(nca; recompute=false, kwargs...)
+    λz = lambdaz(nca; recompute=false, verbose=verbose, kwargs...)
     auc += inf(_clast, _tlast, λz)
   end
 
@@ -476,7 +476,7 @@ calculate `lambdaz` before calculating this quantity.
 
 See also [`lambdaz`](@ref).
 """
-lambdaznpoints(nca::NCASubject; kwargs...) = (lambdaz(nca; kwargs...); _first(nca.points))
+lambdaznpoints(nca::NCASubject; kwargs...) = (lambdaz(nca; recompute=false, kwargs...); _first(nca.points))
 
 """
   lambdaztimefirst(nca::NCASubject; kwargs...)
@@ -486,7 +486,7 @@ calculate `lambdaz` before calculating this quantity.
 
 See also [`lambdaz`](@ref).
 """
-lambdaztimefirst(nca::NCASubject; kwargs...) = (lambdaz(nca; kwargs...); _first(nca.firstpoint))
+lambdaztimefirst(nca::NCASubject; kwargs...) = (lambdaz(nca; recompute=false, kwargs...); _first(nca.firstpoint))
 
 """
   lambdaztimelast(nca::NCASubject; kwargs...)
@@ -496,14 +496,14 @@ calculate `lambdaz` before calculating this quantity.
 
 See also [`lambdaz`](@ref).
 """
-lambdaztimelast(nca::NCASubject; kwargs...) = (lambdaz(nca; kwargs...); _first(nca.lastpoint))
+lambdaztimelast(nca::NCASubject; kwargs...) = (lambdaz(nca; recompute=false, kwargs...); _first(nca.lastpoint))
 
 """
     span(nca::NCASubject; kwargs...)
 
 Calculate span
 """
-span(nca::NCASubject; kwargs...) = (lambdaztimelast(nca; kwargs...) - lambdaztimefirst(nca)) / thalf(nca)
+span(nca::NCASubject; kwargs...) = (lambdaztimelast(nca; recompute=false, kwargs...) - lambdaztimefirst(nca; recompute=false, kwargs...)) / thalf(nca; recompute=false, kwargs...)
 
 """
   lambdazintercept(nca::NCASubject; kwargs...)
@@ -513,7 +513,7 @@ calculate `lambdaz` before calculating this quantity.
 
 See also [`lambdaz`](@ref).
 """
-lambdazintercept(nca::NCASubject; kwargs...) = (lambdaz(nca; kwargs...); _first(nca.intercept))
+lambdazintercept(nca::NCASubject; kwargs...) = (lambdaz(nca; recompute=false, kwargs...); _first(nca.intercept))
 
 
 """
@@ -524,7 +524,7 @@ calculate `lambdaz` before calculating this quantity.
 
 See also [`lambdaz`](@ref).
 """
-lambdazr2(nca::NCASubject; kwargs...) = (lambdaz(nca; kwargs...); _first(nca.r2))
+lambdazr2(nca::NCASubject; kwargs...) = (lambdaz(nca; recompute=false, kwargs...); _first(nca.r2))
 
 """
   lambdazr(nca::NCASubject; kwargs...)
@@ -534,7 +534,7 @@ calculate `lambdaz` before calculating this quantity.
 
 See also [`lambdaz`](@ref).
 """
-lambdazr(nca::NCASubject; kwargs...) = (lambdaz(nca; kwargs...); sqrt(_first(nca.r2)))
+lambdazr(nca::NCASubject; kwargs...) = (lambdaz(nca; recompute=false, kwargs...); sqrt(_first(nca.r2)))
 
 """
   lambdazadjr2(nca::NCASubject; kwargs...)
@@ -544,4 +544,4 @@ Give the adjusted coefficient of determination (``adjr²``) when calculating
 
 See also [`lambdaz`](@ref).
 """
-lambdazadjr2(nca::NCASubject; kwargs...) = (lambdaz(nca; kwargs...); _first(nca.adjr2))
+lambdazadjr2(nca::NCASubject; kwargs...) = (lambdaz(nca; recompute=false, kwargs...); _first(nca.adjr2))
