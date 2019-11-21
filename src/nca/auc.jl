@@ -64,7 +64,7 @@ Extrapolate the first moment to the infinite.
   if method === :linear || (method === :linuplogdown && c2>=c1) || (method === :linlog && i < maxidx)
     return Linear
   else
-    c1 <= zero(c1) || c2 <= zero(c2) || c1 == c2 && return Linear
+    (c1 <= zero(c1) || c2 <= zero(c2) || c1 == c2) && return Linear
     return Log
   end
 end
@@ -72,7 +72,8 @@ end
 @inline function intervalauc(c1, c2, t1, t2, i::Int, maxidx::Int, method::Symbol, linear, log, ret_typ)
   t1 == t2 && return zero(ret_typ)
   m = choosescheme(c1, c2, t1, t2, i, maxidx, method)
-  return m === Linear ? linear(c1, c2, t1, t2) : log(c1, c2, t1, t2)
+  ret = m === Linear ? linear(c1, c2, t1, t2) : log(c1, c2, t1, t2)
+  return ret
 end
 
 @inline function iscached(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}, sym::Symbol) where {C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}
