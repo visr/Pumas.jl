@@ -352,9 +352,12 @@ function aumc_extrap_percent(nca::NCASubject; kwargs...)
   (aumcinf-aumclast)/aumcinf * 100
 end
 
-function fitlog(x, y)
-  any(x->x<=zero(x), y) && return missing
-  return lm(hcat(fill!(similar(x), 1), x), log.(y))
+function fitlog(x, y)::Tuple{<:Any, Int}
+  mask = map(x->x > zero(x), y)
+  x, y = x[mask], y[mask]
+  points = length(y)
+  points < 3 && return missing, points
+  return lm(hcat(fill!(similar(x), 1), x), log.(y)), points
 end
 
 """
@@ -396,7 +399,7 @@ function lambdaz(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT
       idxs = idx2-i:idx2
       x = time′[idxs]
       y = conc′[idxs]
-      model = fitlog(x, y)
+      model, points′ = fitlog(x, y)
       model === missing && continue
       adjr2 = oneunit(_F) * adjr²(model)
       if adjr2 > (maxadjr2 - adjr2factor)
@@ -407,7 +410,7 @@ function lambdaz(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT
         intercept = coefs[1]
         firstpoint = time[idxs[1]]
         lastpoint = time[idxs[end]]
-        points = i+1
+        points = points′
         valid = true
       end
     end
@@ -418,7 +421,7 @@ function lambdaz(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT
     length(idxs) != points && throw(ArgumentError("elements slopetimes must occur in nca.time"))
     x = time′[idxs]
     y = conc′[idxs]
-    model = fitlog(x, y)
+    model, points = fitlog(x, y)
     if model !== missing
       λ = oneunit(_Z) * coef(model)[2]
       intercept = coef(model)[1]
