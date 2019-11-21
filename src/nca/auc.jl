@@ -197,7 +197,7 @@ function _auc(nca::NCASubject{C,TT,T,tEltype,AUC,AUMC,D,Z,F,N,I,P,ID,G,V,R,RT}, 
       end
     end
   else
-    idx1, idx2 = firstindex(time), lastindex(time)
+    idx1, idx2 = firstindex(time), nca.lastidx
     # handle C0
     cacheauc0!(nca, zero(_first(nca.auc_0)))
     time0 = zero(time[idx1])
