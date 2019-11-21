@@ -48,3 +48,9 @@ subj = read_nca(df, time=:time, conc=:conc, verbose=false, concblq=Dict(:first=>
 @test subj.conc == [1,1,3,0]
 
 @test_nowarn show(NCASubject([1,2,3.]*u"mg/L", (1:3)*u"hr"))
+
+@test NCA.choosescheme(0, 1, 0, 1, 1, 10, :linuplogdown) === NCA.Linear
+
+conc = [0.0,  0.010797988784995802,  0.0311661014235923,  0.0,  0.08643594149959559,  0.018489935844277383,  0.11633550035087399,  0.04838749939561179,  0.028858964356788423,  0.03488486420528403,  0.018256694779941317,  0.0]
+t = [0.0,   0.5,   1.0,   2.0,   3.0,   4.0,   8.0,  12.0,  16.0,  24.0,  36.0,  48.0]
+@test NCA.auclast(NCASubject(conc, t, concblq=:keep), method=:linuplogdown) ≈ 1.409803969
