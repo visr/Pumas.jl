@@ -70,10 +70,11 @@ RecursiveArrayTools = "1"
 Reexport = "0.2"
 StaticArrays = "0.10, 0.11, 0.12"
 StatsBase = "0.32"
-Tables = "0.2"
 StochasticDiffEq = "6.10"
+Tables = "0.2"
 TransformVariables = "< 0.3.5"
 TreeViews = "0.3"
+Unitful = "0.17"
 julia = "1.1"
 
 [extras]
